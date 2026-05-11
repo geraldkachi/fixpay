@@ -58,6 +58,10 @@ fixpay:
     url: ${NATS_URL:nats://localhost:4222}
   verification:
     report-base-url: ${VERIFICATION_REPORT_BASE_URL:https://reports.fixpay.local/kyc}
+  vtpass:
+    base-url: ${VTPASS_BASE_URL:https://sandbox.vtpass.com}
+    api-key: ${VTPASS_API_KEY:}
+    secret-key: ${VTPASS_SECRET_KEY:}
 
 logging:
   level:

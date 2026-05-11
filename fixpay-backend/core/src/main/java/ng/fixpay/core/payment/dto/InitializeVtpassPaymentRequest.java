@@ -13,6 +13,8 @@ public record InitializeVtpassPaymentRequest(
         @NotBlank(message = "billerCustomerRef is required")
         String billerCustomerRef,
 
+        String variationCode,
+
         @NotNull(message = "amount is required")
         @DecimalMin(value = "1.00", message = "amount must be at least 1.00")
         BigDecimal amount,

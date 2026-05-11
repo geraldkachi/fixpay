@@ -43,6 +43,12 @@ public class VtpassPayment {
     @Column(name = "provider_status", nullable = false, length = 30)
     private String providerStatus;
 
+    @Column(name = "provider_code", length = 10)
+    private String providerCode;
+
+    @Column(name = "provider_message", length = 255)
+    private String providerMessage;
+
     @Column(name = "external_reference", length = 150)
     private String externalReference;
 
@@ -97,6 +103,8 @@ public class VtpassPayment {
     public VtpassPaymentMethod getPaymentMethod() { return paymentMethod; }
     public String getPaymentStatus() { return paymentStatus; }
     public String getProviderStatus() { return providerStatus; }
+    public String getProviderCode() { return providerCode; }
+    public String getProviderMessage() { return providerMessage; }
     public String getExternalReference() { return externalReference; }
     public String getMandateReference() { return mandateReference; }
     public String getAuthorizationPayload() { return authorizationPayload; }
@@ -106,6 +114,8 @@ public class VtpassPayment {
     public void markAuthorized(String providerStatus, String externalReference, String authorizationPayload) {
         this.paymentStatus = "authorized";
         this.providerStatus = providerStatus;
+        this.providerCode = null;
+        this.providerMessage = null;
         this.externalReference = externalReference;
         this.authorizationPayload = authorizationPayload;
     }
@@ -113,7 +123,33 @@ public class VtpassPayment {
     public void markPendingAuthorization(String providerStatus, String externalReference, String authorizationPayload) {
         this.paymentStatus = "pending_authorization";
         this.providerStatus = providerStatus;
+        this.providerCode = null;
+        this.providerMessage = null;
         this.externalReference = externalReference;
         this.authorizationPayload = authorizationPayload;
+    }
+
+    public void markProcessing(String providerStatus, String providerCode, String providerMessage, String externalReference) {
+        this.paymentStatus = "processing";
+        this.providerStatus = providerStatus;
+        this.providerCode = providerCode;
+        this.providerMessage = providerMessage;
+        this.externalReference = externalReference;
+    }
+
+    public void markCompleted(String providerStatus, String providerCode, String providerMessage, String externalReference) {
+        this.paymentStatus = "completed";
+        this.providerStatus = providerStatus;
+        this.providerCode = providerCode;
+        this.providerMessage = providerMessage;
+        this.externalReference = externalReference;
+    }
+
+    public void markFailed(String providerStatus, String providerCode, String providerMessage, String externalReference) {
+        this.paymentStatus = "failed";
+        this.providerStatus = providerStatus;
+        this.providerCode = providerCode;
+        this.providerMessage = providerMessage;
+        this.externalReference = externalReference;
     }
 }

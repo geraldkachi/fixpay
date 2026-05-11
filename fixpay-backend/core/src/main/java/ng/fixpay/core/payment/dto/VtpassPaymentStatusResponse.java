@@ -7,6 +7,8 @@ public record VtpassPaymentStatusResponse(
         String paymentReference,
         String paymentStatus,
         String providerStatus,
+        String providerCode,
+        String providerMessage,
         VtpassPaymentMethod paymentMethod,
         BigDecimal amount,
         String externalReference,

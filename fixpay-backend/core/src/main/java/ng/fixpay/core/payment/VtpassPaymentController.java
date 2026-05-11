@@ -34,4 +34,28 @@ public class VtpassPaymentController {
     ) {
         return ApiResponse.ok(paymentService.getStatus(jwt, paymentReference));
     }
+
+    @PostMapping("/{paymentReference}/execute")
+    public ApiResponse<VtpassPaymentStatusResponse> execute(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable String paymentReference
+    ) {
+        return ApiResponse.ok("VTpass payment execution attempted", paymentService.execute(jwt, paymentReference));
+    }
+
+    @PostMapping("/{paymentReference}/requery")
+    public ApiResponse<VtpassPaymentStatusResponse> requery(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable String paymentReference
+    ) {
+        return ApiResponse.ok("VTpass payment requery completed", paymentService.requery(jwt, paymentReference));
+    }
+
+    @PostMapping("/{paymentReference}/callback-authorize")
+    public ApiResponse<VtpassPaymentStatusResponse> callbackAuthorize(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable String paymentReference
+    ) {
+        return ApiResponse.ok("Authorization callback processed", paymentService.callbackAuthorize(jwt, paymentReference));
+    }
 }

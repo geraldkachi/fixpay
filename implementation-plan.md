@@ -36,10 +36,15 @@
   - `NIBSS_MANDATE` (requires `mandateReference`)
 - Added `vtpass_payments` persistence model with payment rail, authorization state, and provider reference tracking.
 - Added rail-aware authorization payload handling so non-wallet rails can complete asynchronously.
+- Added VTpass execute/requery lifecycle:
+  - Execute endpoint triggers VTpass `/api/pay`.
+  - Requery endpoint triggers VTpass `/api/requery`.
+  - Wallet rail debits on execute and restores on immediate failure.
+  - Callback-authorize endpoint allows USSD/card/mandate async authorization handoff before execution.
 
 ## Immediate Next Steps
 1. Wire real verification providers (BVN, NIN, CAC) behind the provider abstraction.
 2. Add gateway token relay for downstream secured services.
-3. Wire real VTpass purchase + requery APIs and callback/webhook handlers for non-wallet rails.
+3. Add public webhook/callback ingestion for provider-driven auth/completion updates.
 4. Add NIBSS mandate management endpoints and mandate status sync.
 5. Publish events for KYC verified and bill payment completed to NATS.
