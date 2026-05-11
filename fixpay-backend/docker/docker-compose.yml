@@ -9,7 +9,7 @@ services:
       POSTGRES_USER:     fixpay
       POSTGRES_PASSWORD: fixpay_dev_secret
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/01_init.sql
@@ -24,7 +24,7 @@ services:
     image: valkey/valkey:8-alpine
     container_name: fixpay-valkey
     ports:
-      - "6379:6379"
+      - "6380:6379"
     volumes:
       - valkey_data:/data
     command: >
@@ -42,7 +42,7 @@ services:
     ports:
       - "4222:4222"   # client
       - "8222:8222"   # monitoring HTTP
-    command: --jetstream --store_dir /data --http_port 8222 --max_payload 1MB
+    command: --jetstream --store_dir /data --http_port 8222
     volumes:
       - nats_data:/data
     healthcheck:

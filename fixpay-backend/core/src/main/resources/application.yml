@@ -4,10 +4,38 @@ server:
 spring:
   application:
     name: fixpay-core
-  autoconfigure:
-    exclude:
-      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
-      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
+
+  datasource:
+    url:      jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5433}/${DB_NAME:fixpay}
+    username: ${DB_USER:fixpay}
+    password: ${DB_PASSWORD:fixpay_dev_secret}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+  data:
+    redis:
+      host:     ${VALKEY_HOST:localhost}
+      port:     ${VALKEY_PORT:6380}
+      password: ${VALKEY_PASSWORD:valkey_dev_secret}
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KC_URL:http://localhost:8180}/realms/${KC_REALM:customers}
 
 management:
   endpoints:
@@ -18,6 +46,18 @@ management:
     health:
       show-details: always
 
+fixpay:
+  keycloak:
+    url:           ${KC_URL:http://localhost:8180}
+    realm:         ${KC_REALM:customers}
+    admin-realm:   master
+    admin-client:  admin-cli
+    admin-user:    ${KC_ADMIN_USER:admin}
+    admin-password: ${KC_ADMIN_PASSWORD:admin_dev_secret}
+  nats:
+    url: ${NATS_URL:nats://localhost:4222}
+
 logging:
   level:
     ng.fixpay: DEBUG
+    org.hibernate.SQL: DEBUG
