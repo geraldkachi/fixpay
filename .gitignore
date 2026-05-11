@@ -1,0 +1,58 @@
+# ─── Node / frontend ──────────────────────────────────────────────────────
+node_modules/
+dist/
+dev-dist/
+*.local
+
+# Vite
+.vite/
+vite.config.ts.timestamp-*
+
+# env files with secrets (keep .env.example, .env.development, .env.production, .env.mock)
+.env
+.env.local
+.env.*.local
+
+# ─── Java / Gradle ────────────────────────────────────────────────────────
+.gradle/
+build/
+*.class
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
+out/
+target/
+
+# Spring Boot DevTools restart file
+.spring-boot-devtools.properties
+
+# ─── IDEs ─────────────────────────────────────────────────────────────────
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/settings.json
+*.suo
+*.user
+.project
+.classpath
+.settings/
+
+# ─── OS ───────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ─── Docker volumes / local infra state ──────────────────────────────────
+docker/postgres/data/
+docker/keycloak/data/
+
+# ─── Logs ─────────────────────────────────────────────────────────────────
+*.log
+logs/
+
+# ─── Secrets / credentials (never commit these) ───────────────────────────
+*.pem
+*.p12
+*.jks
+*.pfx
+secrets/
