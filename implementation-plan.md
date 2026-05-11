@@ -23,12 +23,23 @@
 ## Next Priority (Core)
 - Phase 3: Bill payments via VTpass integration.
   - Product discovery/caching.
-  - Wallet debit then provider call.
+  - Multi-rail payment initiation: wallet, USSD, card, and NIBSS mandate debit.
+  - Wallet debit flow and non-wallet authorization callback flow.
   - Idempotency and reversal on failure.
   - Transaction journaling and audit trail.
+
+## Phase 3 Delta (Now Implemented)
+- Added VTpass payment initialization/status APIs in `core` with support for:
+  - `WALLET`
+  - `USSD`
+  - `CARD`
+  - `NIBSS_MANDATE` (requires `mandateReference`)
+- Added `vtpass_payments` persistence model with payment rail, authorization state, and provider reference tracking.
+- Added rail-aware authorization payload handling so non-wallet rails can complete asynchronously.
 
 ## Immediate Next Steps
 1. Wire real verification providers (BVN, NIN, CAC) behind the provider abstraction.
 2. Add gateway token relay for downstream secured services.
-3. Implement Phase 3 payment orchestration in `core` using `vtpass-api-reference.md`.
-4. Publish events for KYC verified and bill payment completed to NATS.
+3. Wire real VTpass purchase + requery APIs and callback/webhook handlers for non-wallet rails.
+4. Add NIBSS mandate management endpoints and mandate status sync.
+5. Publish events for KYC verified and bill payment completed to NATS.
