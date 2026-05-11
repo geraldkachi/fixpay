@@ -2,6 +2,7 @@ package ng.fixpay.core.kyc;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import ng.fixpay.core.events.DomainEventPublisher;
 import ng.fixpay.core.kyc.domain.KycVerification;
 import ng.fixpay.core.kyc.domain.KycVerificationRepository;
 import ng.fixpay.core.kyc.dto.CompanyVerificationRequest;
@@ -25,17 +26,20 @@ public class KycService {
     private final KycVerificationRepository verificationRepository;
     private final IdentityVerificationProvider verificationProvider;
     private final ObjectMapper objectMapper;
+    private final DomainEventPublisher eventPublisher;
 
     public KycService(
             UserRepository userRepository,
             KycVerificationRepository verificationRepository,
             IdentityVerificationProvider verificationProvider,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            DomainEventPublisher eventPublisher
     ) {
         this.userRepository = userRepository;
         this.verificationRepository = verificationRepository;
         this.verificationProvider = verificationProvider;
         this.objectMapper = objectMapper;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional
@@ -64,6 +68,14 @@ public class KycService {
             verification.markFailed(providerResult.providerReference(), providerResult.reportUrl(), providerResult.verifiedAt());
             user.setKycStatus("rejected");
         }
+
+        eventPublisher.publish("kyc.status.updated", java.util.Map.of(
+                "userId", user.getId().toString(),
+                "tenantId", user.getTenantId().toString(),
+                "kycStatus", user.getKycStatus(),
+                "verificationStatus", verification.getVerificationStatus(),
+                "providerReference", String.valueOf(verification.getProviderReference())
+        ));
 
         return new CompanyVerificationResponse(
                 verification.getId(),

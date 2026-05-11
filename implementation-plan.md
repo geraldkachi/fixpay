@@ -56,10 +56,13 @@
   - execution start
   - wallet debit/reversal
   - provider/requery/webhook status transitions
+- Added payment journal retrieval endpoint for customer/audit visibility.
+- Hardened webhook verification to HMAC-SHA256 signature validation against raw request payload.
+- Added event publishing hooks for payment, KYC, and mandate status lifecycle updates (NATS-backed, feature-flagged).
 
 ## Immediate Next Steps
 1. Wire real verification providers (BVN, NIN, CAC) behind the provider abstraction.
 2. Add gateway token relay for downstream secured services.
-3. Publish events for KYC verified and bill payment completed to NATS.
-4. Add payment journal retrieval endpoint for operations/audit tooling.
-5. Harden webhook signature verification with HMAC payload signing.
+3. Add gateway token relay and downstream auth propagation hardening.
+4. Add integration tests for wallet debit/reversal and webhook-driven state transitions.
+5. Wire real NIBSS mandate status provider sync instead of placeholder local activation.

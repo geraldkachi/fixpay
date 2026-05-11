@@ -2,6 +2,7 @@ package ng.fixpay.core.payment;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import ng.fixpay.core.events.DomainEventPublisher;
 import ng.fixpay.core.mandate.MandateService;
 import ng.fixpay.core.payment.domain.PaymentJournalEntry;
 import ng.fixpay.core.payment.domain.PaymentJournalEntryRepository;
@@ -9,6 +10,7 @@ import ng.fixpay.core.payment.domain.VtpassPayment;
 import ng.fixpay.core.payment.domain.VtpassPaymentRepository;
 import ng.fixpay.core.payment.dto.InitializeVtpassPaymentRequest;
 import ng.fixpay.core.payment.dto.InitializeVtpassPaymentResponse;
+import ng.fixpay.core.payment.dto.PaymentJournalEntryResponse;
 import ng.fixpay.core.payment.dto.VtpassPaymentMethod;
 import ng.fixpay.core.payment.dto.VtpassPaymentStatusResponse;
 import ng.fixpay.core.payment.dto.VtpassWebhookRequest;
@@ -24,10 +26,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.beans.factory.annotation.Value;
 
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -42,6 +48,7 @@ public class VtpassPaymentService {
     private final VtpassClient vtpassClient;
     private final ObjectMapper objectMapper;
     private final MandateService mandateService;
+    private final DomainEventPublisher eventPublisher;
     private final String webhookSecret;
 
     public VtpassPaymentService(
@@ -52,6 +59,7 @@ public class VtpassPaymentService {
             VtpassClient vtpassClient,
             ObjectMapper objectMapper,
             MandateService mandateService,
+                DomainEventPublisher eventPublisher,
             @Value("${fixpay.vtpass.webhook-secret:dev_vtpass_webhook_secret}") String webhookSecret
     ) {
         this.userRepository = userRepository;
@@ -61,6 +69,7 @@ public class VtpassPaymentService {
         this.vtpassClient = vtpassClient;
         this.objectMapper = objectMapper;
         this.mandateService = mandateService;
+        this.eventPublisher = eventPublisher;
         this.webhookSecret = webhookSecret;
     }
 
@@ -121,6 +130,7 @@ public class VtpassPaymentService {
                 "idempotencyKey", Objects.toString(idempotencyKey, "")
             ))
         );
+        publishPaymentEvent("payment.initialized", payment);
 
         return toInitializeResponse(payment, decision.authorizationMessage(), decision.ussdCode(), decision.checkoutUrl());
     }
@@ -186,6 +196,7 @@ public class VtpassPaymentService {
                 "Payment execution started",
                 toJson(Map.of("paymentMethod", payment.getPaymentMethod().name()))
         );
+            publishPaymentEvent("payment.execution.started", payment);
 
         Wallet wallet = null;
         BigDecimal originalBalance = null;
@@ -234,6 +245,7 @@ public class VtpassPaymentService {
                     "Provider completed payment",
                     result.rawResponse()
             );
+            publishPaymentEvent("payment.completed", payment);
         } else if (result.pending()) {
             payment.markProcessing(result.providerStatus(), result.providerCode(), result.providerMessage(), result.requestId());
             journal(
@@ -245,6 +257,7 @@ public class VtpassPaymentService {
                     "Provider accepted payment and marked it pending",
                     result.rawResponse()
             );
+                    publishPaymentEvent("payment.pending", payment);
         } else {
             if (wallet != null && originalBalance != null && originalLedger != null) {
                 wallet.setBalance(originalBalance);
@@ -269,6 +282,7 @@ public class VtpassPaymentService {
                     "Provider failed payment",
                     result.rawResponse()
             );
+                    publishPaymentEvent("payment.failed", payment);
         }
 
         return toStatusResponse(payment);
@@ -295,12 +309,15 @@ public class VtpassPaymentService {
         if (result.successful()) {
             payment.markCompleted(result.providerStatus(), result.providerCode(), result.providerMessage(), result.requestId());
             journal(payment, "REQUERY_COMPLETED", payment.getAmount(), null, null, "Requery completed payment", result.rawResponse());
+            publishPaymentEvent("payment.completed", payment);
         } else if (result.pending()) {
             payment.markProcessing(result.providerStatus(), result.providerCode(), result.providerMessage(), result.requestId());
             journal(payment, "REQUERY_PENDING", payment.getAmount(), null, null, "Requery indicates pending", result.rawResponse());
+            publishPaymentEvent("payment.pending", payment);
         } else {
             payment.markFailed(result.providerStatus(), result.providerCode(), result.providerMessage(), result.requestId());
             journal(payment, "REQUERY_FAILED", payment.getAmount(), null, null, "Requery indicates failure", result.rawResponse());
+            publishPaymentEvent("payment.failed", payment);
         }
 
         return toStatusResponse(payment);
@@ -329,10 +346,12 @@ public class VtpassPaymentService {
     }
 
     @Transactional
-    public VtpassPaymentStatusResponse processWebhook(String webhookSignature, VtpassWebhookRequest request) {
-        if (webhookSignature == null || !webhookSignature.equals(webhookSecret)) {
+    public VtpassPaymentStatusResponse processWebhook(String webhookSignature, String rawPayload) {
+        if (!verifyHmac(webhookSignature, rawPayload)) {
             throw FixPayException.forbidden("Invalid webhook signature");
         }
+
+        VtpassWebhookRequest request = parseWebhookRequest(rawPayload);
 
         VtpassPayment payment = paymentRepository.findByPaymentReference(request.paymentReference())
                 .orElseThrow(() -> FixPayException.notFound("Payment"));
@@ -345,16 +364,47 @@ public class VtpassPaymentService {
         if ("delivered".equals(status) || "completed".equals(status) || "success".equals(status)) {
             payment.markCompleted(request.providerStatus(), request.providerCode(), request.providerMessage(), externalRef);
             journal(payment, "WEBHOOK_COMPLETED", payment.getAmount(), null, null, "Webhook completed payment", toJson(request));
+            publishPaymentEvent("payment.completed", payment);
         } else if ("pending".equals(status) || "processing".equals(status)) {
             payment.markProcessing(request.providerStatus(), request.providerCode(), request.providerMessage(), externalRef);
             journal(payment, "WEBHOOK_PENDING", payment.getAmount(), null, null, "Webhook marked payment pending", toJson(request));
+            publishPaymentEvent("payment.pending", payment);
         } else {
             payment.markFailed(request.providerStatus(), request.providerCode(), request.providerMessage(), externalRef);
             journal(payment, "WEBHOOK_FAILED", payment.getAmount(), null, null, "Webhook marked payment failed", toJson(request));
+            publishPaymentEvent("payment.failed", payment);
         }
 
         return toStatusResponse(payment);
     }
+
+        @Transactional(readOnly = true)
+        public List<PaymentJournalEntryResponse> getJournal(Jwt jwt, String paymentReference) {
+        UUID keycloakId = UUID.fromString(jwt.getSubject());
+        AppUser user = userRepository.findByKeycloakId(keycloakId)
+            .orElseThrow(() -> FixPayException.notFound("User"));
+
+        VtpassPayment payment = paymentRepository.findByPaymentReference(paymentReference)
+            .orElseThrow(() -> FixPayException.notFound("Payment"));
+
+        if (!payment.getUserId().equals(user.getId())) {
+            throw FixPayException.forbidden("You cannot access another user's payment journal");
+        }
+
+        return paymentJournalRepository.findByPaymentReferenceOrderByCreatedAtAsc(paymentReference)
+            .stream()
+            .map(entry -> new PaymentJournalEntryResponse(
+                entry.getId(),
+                entry.getEventType(),
+                entry.getAmount(),
+                entry.getBalanceBefore(),
+                entry.getBalanceAfter(),
+                entry.getNote(),
+                entry.getPayload(),
+                entry.getCreatedAt()
+            ))
+            .toList();
+        }
 
     private InitializeVtpassPaymentResponse toInitializeResponse(
             VtpassPayment payment,
@@ -410,6 +460,63 @@ public class VtpassPaymentService {
                 note,
                 payload
         ));
+    }
+
+    private void publishPaymentEvent(String topic, VtpassPayment payment) {
+        eventPublisher.publish(topic, Map.of(
+                "paymentReference", payment.getPaymentReference(),
+                "paymentStatus", payment.getPaymentStatus(),
+                "providerStatus", payment.getProviderStatus(),
+                "paymentMethod", payment.getPaymentMethod().name(),
+                "amount", payment.getAmount().toPlainString(),
+                "tenantId", payment.getTenantId().toString(),
+                "userId", payment.getUserId().toString()
+        ));
+    }
+
+    private VtpassWebhookRequest parseWebhookRequest(String rawPayload) {
+        try {
+            VtpassWebhookRequest request = objectMapper.readValue(rawPayload, VtpassWebhookRequest.class);
+            if (request.paymentReference() == null || request.paymentReference().isBlank()) {
+                throw FixPayException.badRequest("paymentReference is required");
+            }
+            if (request.providerStatus() == null || request.providerStatus().isBlank()) {
+                throw FixPayException.badRequest("providerStatus is required");
+            }
+            return request;
+        } catch (FixPayException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw FixPayException.badRequest("Invalid webhook payload");
+        }
+    }
+
+    private boolean verifyHmac(String signature, String rawPayload) {
+        if (signature == null || signature.isBlank() || rawPayload == null) {
+            return false;
+        }
+        try {
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(webhookSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+            byte[] digest = mac.doFinal(rawPayload.getBytes(StandardCharsets.UTF_8));
+            String expected = toHex(digest);
+
+            String normalized = signature;
+            if (normalized.startsWith("sha256=")) {
+                normalized = normalized.substring("sha256=".length());
+            }
+            return normalized.equalsIgnoreCase(expected);
+        } catch (Exception ex) {
+            return false;
+        }
+    }
+
+    private String toHex(byte[] bytes) {
+        StringBuilder sb = new StringBuilder(bytes.length * 2);
+        for (byte b : bytes) {
+            sb.append(String.format("%02x", b));
+        }
+        return sb.toString();
     }
 
     private RailDecision decideRailAuthorization(InitializeVtpassPaymentRequest request, String paymentReference) {

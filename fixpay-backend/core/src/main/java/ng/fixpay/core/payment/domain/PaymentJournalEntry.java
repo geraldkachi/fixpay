@@ -62,4 +62,15 @@ public class PaymentJournalEntry {
         this.note = note;
         this.payload = payload;
     }
+
+    public UUID getId() { return id; }
+    public UUID getPaymentId() { return paymentId; }
+    public String getPaymentReference() { return paymentReference; }
+    public String getEventType() { return eventType; }
+    public BigDecimal getAmount() { return amount; }
+    public BigDecimal getBalanceBefore() { return balanceBefore; }
+    public BigDecimal getBalanceAfter() { return balanceAfter; }
+    public String getNote() { return note; }
+    public String getPayload() { return payload; }
+    public Instant getCreatedAt() { return createdAt; }
 }

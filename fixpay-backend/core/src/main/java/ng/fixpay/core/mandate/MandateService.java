@@ -1,5 +1,6 @@
 package ng.fixpay.core.mandate;
 
+import ng.fixpay.core.events.DomainEventPublisher;
 import ng.fixpay.core.mandate.domain.NibssMandate;
 import ng.fixpay.core.mandate.domain.NibssMandateRepository;
 import ng.fixpay.core.mandate.dto.CreateMandateRequest;
@@ -19,10 +20,16 @@ public class MandateService {
 
     private final UserRepository userRepository;
     private final NibssMandateRepository mandateRepository;
+    private final DomainEventPublisher eventPublisher;
 
-    public MandateService(UserRepository userRepository, NibssMandateRepository mandateRepository) {
+    public MandateService(
+            UserRepository userRepository,
+            NibssMandateRepository mandateRepository,
+            DomainEventPublisher eventPublisher
+    ) {
         this.userRepository = userRepository;
         this.mandateRepository = mandateRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional
@@ -46,6 +53,12 @@ public class MandateService {
         // Local bootstrap state for now; real provider callback/sync will update this.
         mandate.updateStatus("active", "Mandate provisioned for debit authorization");
         mandateRepository.save(mandate);
+        eventPublisher.publish("mandate.status.updated", java.util.Map.of(
+            "mandateReference", mandate.getMandateReference(),
+            "status", mandate.getStatus(),
+            "tenantId", mandate.getTenantId().toString(),
+            "userId", mandate.getUserId().toString()
+        ));
         return toResponse(mandate);
     }
 
@@ -92,6 +105,12 @@ public class MandateService {
 
         // Placeholder sync behavior until external NIBSS status API is wired.
         mandate.updateStatus("active", "Mandate status synchronized");
+        eventPublisher.publish("mandate.status.updated", java.util.Map.of(
+            "mandateReference", mandate.getMandateReference(),
+            "status", mandate.getStatus(),
+            "tenantId", mandate.getTenantId().toString(),
+            "userId", mandate.getUserId().toString()
+        ));
         return toResponse(mandate);
     }
 
