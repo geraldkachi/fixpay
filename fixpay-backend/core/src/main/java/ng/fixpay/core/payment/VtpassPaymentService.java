@@ -2,12 +2,14 @@ package ng.fixpay.core.payment;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import ng.fixpay.core.mandate.MandateService;
 import ng.fixpay.core.payment.domain.VtpassPayment;
 import ng.fixpay.core.payment.domain.VtpassPaymentRepository;
 import ng.fixpay.core.payment.dto.InitializeVtpassPaymentRequest;
 import ng.fixpay.core.payment.dto.InitializeVtpassPaymentResponse;
 import ng.fixpay.core.payment.dto.VtpassPaymentMethod;
 import ng.fixpay.core.payment.dto.VtpassPaymentStatusResponse;
+import ng.fixpay.core.payment.dto.VtpassWebhookRequest;
 import ng.fixpay.core.payment.provider.VtpassClient;
 import ng.fixpay.core.payment.provider.VtpassPurchaseResult;
 import ng.fixpay.core.user.domain.AppUser;
@@ -18,6 +20,7 @@ import ng.fixpay.shared.exception.FixPayException;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -34,19 +37,25 @@ public class VtpassPaymentService {
     private final WalletRepository walletRepository;
     private final VtpassClient vtpassClient;
     private final ObjectMapper objectMapper;
+    private final MandateService mandateService;
+    private final String webhookSecret;
 
     public VtpassPaymentService(
             UserRepository userRepository,
             VtpassPaymentRepository paymentRepository,
             WalletRepository walletRepository,
             VtpassClient vtpassClient,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            MandateService mandateService,
+            @Value("${fixpay.vtpass.webhook-secret:dev_vtpass_webhook_secret}") String webhookSecret
     ) {
         this.userRepository = userRepository;
         this.paymentRepository = paymentRepository;
         this.walletRepository = walletRepository;
         this.vtpassClient = vtpassClient;
         this.objectMapper = objectMapper;
+        this.mandateService = mandateService;
+        this.webhookSecret = webhookSecret;
     }
 
     @Transactional
@@ -58,6 +67,11 @@ public class VtpassPaymentService {
         if (request.paymentMethod() == VtpassPaymentMethod.NIBSS_MANDATE
                 && (request.mandateReference() == null || request.mandateReference().isBlank())) {
             throw FixPayException.badRequest("mandateReference is required for NIBSS_MANDATE payment");
+        }
+
+        if (request.paymentMethod() == VtpassPaymentMethod.NIBSS_MANDATE
+                && !mandateService.isActiveMandate(user.getId(), request.mandateReference())) {
+            throw FixPayException.badRequest("Active mandate is required for NIBSS_MANDATE payment");
         }
 
         String paymentReference = "FP-VTP-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
@@ -253,6 +267,43 @@ public class VtpassPaymentService {
 
         payment.markAuthorized("authorized", payment.getExternalReference(), payment.getAuthorizationPayload());
         return execute(jwt, paymentReference);
+    }
+
+    @Transactional
+    public VtpassPaymentStatusResponse processWebhook(String webhookSignature, VtpassWebhookRequest request) {
+        if (webhookSignature == null || !webhookSignature.equals(webhookSecret)) {
+            throw FixPayException.forbidden("Invalid webhook signature");
+        }
+
+        VtpassPayment payment = paymentRepository.findByPaymentReference(request.paymentReference())
+                .orElseThrow(() -> FixPayException.notFound("Payment"));
+
+        String status = request.providerStatus() == null ? "" : request.providerStatus().toLowerCase();
+        String externalRef = request.providerRequestId() == null || request.providerRequestId().isBlank()
+                ? payment.getExternalReference()
+                : request.providerRequestId();
+
+        if ("delivered".equals(status) || "completed".equals(status) || "success".equals(status)) {
+            payment.markCompleted(request.providerStatus(), request.providerCode(), request.providerMessage(), externalRef);
+        } else if ("pending".equals(status) || "processing".equals(status)) {
+            payment.markProcessing(request.providerStatus(), request.providerCode(), request.providerMessage(), externalRef);
+        } else {
+            payment.markFailed(request.providerStatus(), request.providerCode(), request.providerMessage(), externalRef);
+        }
+
+        return new VtpassPaymentStatusResponse(
+                payment.getPaymentReference(),
+                payment.getPaymentStatus(),
+                payment.getProviderStatus(),
+                payment.getProviderCode(),
+                payment.getProviderMessage(),
+                payment.getPaymentMethod(),
+                payment.getAmount(),
+                payment.getExternalReference(),
+                payment.getMandateReference(),
+                payment.getCreatedAt(),
+                payment.getUpdatedAt()
+        );
     }
 
     private RailDecision decideRailAuthorization(InitializeVtpassPaymentRequest request, String paymentReference) {

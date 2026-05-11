@@ -62,6 +62,9 @@ fixpay:
     base-url: ${VTPASS_BASE_URL:https://sandbox.vtpass.com}
     api-key: ${VTPASS_API_KEY:}
     secret-key: ${VTPASS_SECRET_KEY:}
+    webhook-secret: ${VTPASS_WEBHOOK_SECRET:dev_vtpass_webhook_secret}
+  mandate:
+    provider: ${MANDATE_PROVIDER:nibss-npsm}
 
 logging:
   level:

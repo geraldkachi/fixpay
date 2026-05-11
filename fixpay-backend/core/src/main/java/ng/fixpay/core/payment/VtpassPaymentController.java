@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import ng.fixpay.core.payment.dto.InitializeVtpassPaymentRequest;
 import ng.fixpay.core.payment.dto.InitializeVtpassPaymentResponse;
 import ng.fixpay.core.payment.dto.VtpassPaymentStatusResponse;
+import ng.fixpay.core.payment.dto.VtpassWebhookRequest;
 import ng.fixpay.shared.dto.ApiResponse;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -57,5 +58,13 @@ public class VtpassPaymentController {
             @PathVariable String paymentReference
     ) {
         return ApiResponse.ok("Authorization callback processed", paymentService.callbackAuthorize(jwt, paymentReference));
+    }
+
+    @PostMapping("/webhook")
+    public ApiResponse<VtpassPaymentStatusResponse> webhook(
+            @RequestHeader(name = "x-webhook-signature", required = false) String webhookSignature,
+            @Valid @RequestBody VtpassWebhookRequest request
+    ) {
+        return ApiResponse.ok("Webhook processed", paymentService.processWebhook(webhookSignature, request));
     }
 }

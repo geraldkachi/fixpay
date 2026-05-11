@@ -32,6 +32,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 // Public endpoints
                 .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/payments/vtpass/webhook").permitAll()
                 .requestMatchers("/api/health", "/api/version").permitAll()
                 .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                 // Everything else requires a valid JWT
