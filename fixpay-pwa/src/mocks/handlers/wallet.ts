@@ -1,0 +1,34 @@
+import { http, HttpResponse, delay } from 'msw'
+import { mockWallet, mockTransactions } from '../data'
+
+// Mutable in-memory wallet balance for the session
+let balanceKobo = mockWallet.balanceKobo
+
+export function deductBalance(kobo: number) { balanceKobo = Math.max(0, balanceKobo - kobo) }
+export function addBalance(kobo: number) { balanceKobo += kobo }
+export function getBalance() { return balanceKobo }
+
+export const walletHandlers = [
+  http.get('/api/wallet/me', async () => {
+    await delay(400)
+    return HttpResponse.json({ ...mockWallet, balanceKobo })
+  }),
+
+  http.get('/api/wallet/transactions', async ({ request }) => {
+    await delay(500)
+    const url = new URL(request.url)
+    const page = parseInt(url.searchParams.get('page') ?? '0')
+    const size = parseInt(url.searchParams.get('size') ?? '20')
+    const type = url.searchParams.get('type')
+    const filtered = type ? mockTransactions.filter(t => t.type === type) : mockTransactions
+    const slice = filtered.slice(page * size, (page + 1) * size)
+    return HttpResponse.json({ content: slice, totalElements: filtered.length, totalPages: Math.ceil(filtered.length / size), number: page })
+  }),
+
+  http.get('/api/wallet/transactions/:id', async ({ params }) => {
+    await delay(300)
+    const tx = mockTransactions.find(t => t.id === params.id)
+    if (!tx) return HttpResponse.json({ message: 'Not found' }, { status: 404 })
+    return HttpResponse.json(tx)
+  }),
+]

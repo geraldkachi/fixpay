@@ -1,0 +1,178 @@
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useForm, type Resolver } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
+import { useQuery } from '@tanstack/react-query'
+import { CheckCircleIcon } from '@heroicons/react/24/solid'
+import { api } from '@/lib/api'
+import { queryClient } from '@/lib/query-client'
+import type { ServiceVariation, BillerVerify } from '@/types'
+import { PageHeader } from '@/components/layout/PageHeader'
+import { Input } from '@/components/ui/Input'
+import { Button } from '@/components/ui/Button'
+import { BottomSheet } from '@/components/ui/BottomSheet'
+import { PinPad } from '@/components/ui/PinPad'
+import { Spinner } from '@/components/ui/Spinner'
+
+const PROVIDERS = [
+  { id: 'dstv',       label: 'DStv',       bg: '#0072CE' },
+  { id: 'gotv',       label: 'GOtv',       bg: '#E37022' },
+  { id: 'startimes',  label: 'Startimes',  bg: '#E60000' },
+]
+
+const schema = z.object({
+  serviceId:     z.string().min(1),
+  billersCode:   z.string().min(6, 'Enter smartcard number'),
+  variationCode: z.string().min(1, 'Select a package'),
+  subscriptionType: z.enum(['renew', 'change']),
+})
+type FormData = z.infer<typeof schema>
+
+export function TvScreen() {
+  const navigate = useNavigate()
+  const [showPin, setShowPin] = useState(false)
+  const [pin, setPin] = useState('')
+  const [pinError, setPinError] = useState('')
+  const [verifyResult, setVerifyResult] = useState<BillerVerify | null>(null)
+  const [verifying, setVerifying] = useState(false)
+  const [verifyError, setVerifyError] = useState('')
+  const [pending, setPending] = useState<FormData | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+
+  const { register, handleSubmit, setValue, watch, formState: { errors }, getValues } = useForm<FormData>({
+    resolver: zodResolver(schema) as Resolver<FormData>,
+    defaultValues: { serviceId: 'dstv', billersCode: '', variationCode: '', subscriptionType: 'renew' },
+  })
+  const serviceId = watch('serviceId')
+  const variationCode = watch('variationCode')
+  const subscriptionType = watch('subscriptionType')
+
+  const { data: varData, isLoading: varsLoading } = useQuery({
+    queryKey: ['variations', serviceId],
+    queryFn: () => api.get<{ variations: ServiceVariation[] }>(`/payments/variations/${serviceId}`).then(r => r.data),
+  })
+  const variations = varData?.variations ?? []
+  const chosen = variations.find(v => v.variationCode === variationCode)
+
+  const handleVerify = async () => {
+    const smartcard = getValues('billersCode')
+    if (!smartcard || smartcard.length < 6) { setVerifyError('Enter smartcard number first'); return }
+    setVerifying(true); setVerifyError(''); setVerifyResult(null)
+    try {
+      const res = await api.post<BillerVerify>('/payments/verify', { serviceId, billersCode: smartcard })
+      setVerifyResult(res.data)
+    } catch {
+      setVerifyError('Smartcard not found. Check and retry. (Demo: use 1212121212)')
+    } finally { setVerifying(false) }
+  }
+
+  const onSubmit = (data: FormData) => { setPending(data); setPin(''); setPinError(''); setShowPin(true) }
+
+  const handlePinChange = async (val: string) => {
+    setPin(val); setPinError('')
+    if (val.length < 6 || !pending || submitting) return
+    setSubmitting(true)
+    try {
+      await api.post('/auth/pin/verify', { pin: val })
+      const amount = subscriptionType === 'renew'
+        ? verifyResult?.renewalAmount ?? parseFloat(chosen?.variationAmount ?? '0')
+        : parseFloat(chosen?.variationAmount ?? '0')
+      const res = await api.post<{ requestId: string; transaction_date: string }>('/payments/tv', { ...pending, amount })
+      queryClient.invalidateQueries({ queryKey: ['wallet'] })
+      queryClient.invalidateQueries({ queryKey: ['transactions'] })
+      navigate('/payments/receipt', {
+        state: { type: 'tv', provider: serviceId, customerName: verifyResult?.customerName, smartcard: pending.billersCode, package: chosen?.name ?? 'Renewal', amount, requestId: res.data.requestId, date: res.data.transaction_date },
+      })
+    } catch {
+      setPinError('Incorrect PIN or payment failed.')
+      setPin(''); setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="flex flex-col h-[100dvh] bg-[#F2F2F7]">
+      <PageHeader title="TV / Cable" onBack="default" />
+      <div className="flex-1 overflow-y-auto no-scrollbar px-4 pt-4 pb-8 animate-slide-up">
+
+        {/* Provider */}
+        <p className="text-[13px] font-semibold text-gray-500 uppercase tracking-wide mb-2">Provider</p>
+        <div className="grid grid-cols-3 gap-2 mb-5">
+          {PROVIDERS.map(p => (
+            <button key={p.id} onClick={() => { setValue('serviceId', p.id); setValue('variationCode', ''); setVerifyResult(null) }}
+              className="py-3 rounded-[14px] border-2 text-white text-[13px] font-bold transition-all pressable"
+              style={{ borderColor: serviceId === p.id ? 'var(--brand-primary)' : 'transparent', background: p.bg }}>
+              {p.label}
+            </button>
+          ))}
+        </div>
+
+        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+          {/* Smartcard + verify */}
+          <div>
+            <Input label="Smartcard / IUC Number" type="tel" inputMode="numeric" placeholder="e.g. 1212121212"
+              error={errors.billersCode?.message} {...register('billersCode')} />
+            <p className="text-[11px] text-gray-400 mt-1 px-1">Demo: use 1212121212</p>
+            <Button type="button" variant="outline" size="sm" className="mt-2 w-full" onClick={handleVerify} loading={verifying}>
+              Verify Smartcard
+            </Button>
+          </div>
+
+          {verifyError && <p className="text-ios-red text-[13px]">{verifyError}</p>}
+          {verifyResult && (
+            <div className="bg-green-50 rounded-[14px] px-4 py-3 flex gap-3 items-start">
+              <CheckCircleIcon className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-gray-900">{verifyResult.customerName}</p>
+                {verifyResult.currentBouquet && <p className="text-[12px] text-gray-500">Current: {verifyResult.currentBouquet}</p>}
+              </div>
+            </div>
+          )}
+
+          {/* Subscription type */}
+          <div className="flex bg-white rounded-[12px] p-1 gap-1 shadow-sm">
+            {(['renew', 'change'] as const).map(t => (
+              <button key={t} type="button" onClick={() => { setValue('subscriptionType', t); setValue('variationCode', '') }}
+                className="flex-1 py-2 rounded-[10px] text-[14px] font-semibold transition-all pressable"
+                style={subscriptionType === t ? { background: 'var(--brand-primary)', color: 'white' } : { color: '#8E8E93' }}>
+                {t === 'renew' ? 'Renew' : 'Change Plan'}
+              </button>
+            ))}
+          </div>
+
+          {/* Package (only for change) */}
+          {subscriptionType === 'change' && (
+            <div>
+              <p className="text-[13px] font-semibold text-gray-500 uppercase tracking-wide mb-2">Select Package</p>
+              {varsLoading ? <Spinner /> : (
+                <div className="flex flex-col gap-2">
+                  {variations.map(v => (
+                    <button key={v.variationCode} type="button" onClick={() => setValue('variationCode', v.variationCode)}
+                      className="flex items-center justify-between bg-white rounded-[14px] px-4 py-3 border-2 transition-all pressable"
+                      style={{ borderColor: variationCode === v.variationCode ? 'var(--brand-primary)' : 'transparent' }}>
+                      <span className="text-[15px] font-medium text-gray-800">{v.name}</span>
+                      <span className="text-[15px] font-bold" style={{ color: 'var(--brand-primary)' }}>₦{parseFloat(v.variationAmount).toLocaleString()}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {errors.variationCode && <p className="text-ios-red text-[13px] mt-1">{errors.variationCode.message}</p>}
+            </div>
+          )}
+
+          <Button type="submit" fullWidth className="mt-2" disabled={!verifyResult}>
+            {verifyResult && subscriptionType === 'renew'
+              ? `Pay ₦${(verifyResult.renewalAmount ?? 0).toLocaleString()}`
+              : chosen ? `Pay ₦${parseFloat(chosen.variationAmount).toLocaleString()}` : 'Continue'}
+          </Button>
+        </form>
+      </div>
+
+      <BottomSheet open={showPin} onClose={() => setShowPin(false)} title="Enter PIN" dismissible={!submitting}>
+        <div className="px-2 pt-2 pb-4">
+          <PinPad value={pin} onChange={handlePinChange} error={pinError} disabled={submitting} />
+        </div>
+      </BottomSheet>
+    </div>
+  )
+}

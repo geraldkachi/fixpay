@@ -1,0 +1,131 @@
+export interface User {
+  id: string
+  phone?: string
+  email?: string
+  firstName: string
+  lastName: string
+  tier: 1 | 2 | 3
+  kycStatus: 'pending' | 'partial' | 'verified' | 'rejected'
+  createdAt: string
+}
+
+export interface Wallet {
+  id: string
+  balanceKobo: number
+  currency: 'NGN'
+  status: 'active' | 'frozen' | 'closed'
+  virtualAccount: { accountNumber: string; bankName: string; bankCode: string }
+}
+
+export type TxType = 'bill_payment' | 'transfer_out' | 'transfer_in' | 'wallet_funding' | 'withdrawal'
+export type TxStatus = 'initiated' | 'processing' | 'completed' | 'failed' | 'reversed'
+
+export interface Transaction {
+  id: string
+  type: TxType
+  amountKobo: number
+  feeKobo: number
+  status: TxStatus
+  reference: string
+  description: string
+  counterpartyName?: string
+  serviceId?: string
+  serviceName?: string
+  token?: string
+  createdAt: string
+}
+
+export interface TenantConfig {
+  tenantId: string
+  slug: string
+  appName: string
+  primaryColor: string
+  secondaryColor: string
+  accentColor: string
+  logoUrl: string | null
+  faviconUrl: string | null
+  supportEmail: string
+  supportPhone: string
+  features: {
+    billPayments: boolean
+    directDebit: boolean
+    walletTransfers: boolean
+    internationalAirtime: boolean
+    disputeManagement: boolean
+    nibssTransfers: boolean
+  }
+}
+
+export interface ServiceVariation {
+  variationCode: string
+  name: string
+  variationAmount: string
+  fixedPrice: 'Yes' | 'No'
+}
+
+export interface BillerVerify {
+  customerName: string
+  status?: string
+  currentBouquet?: string
+  renewalAmount?: number
+  meterType?: string
+  accountType?: string
+  address?: string
+  meterNumber?: string
+}
+
+export interface PaymentResult {
+  transactionId: string
+  reference: string
+  vtpassStatus: 'delivered' | 'pending' | 'failed'
+  serviceName: string
+  amountKobo: number
+  phone: string
+  token?: string
+  units?: string
+  pin?: string
+  date: string
+}
+
+export interface Mandate {
+  id: string
+  accountNumber: string
+  bankName: string
+  bankCode: string
+  amountKobo: number
+  frequency: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'annually' | 'one_off'
+  startDate: string
+  endDate: string
+  narrative: string
+  status: 'pending_auth' | 'active' | 'paused' | 'cancelled' | 'expired'
+  authorizationUrl?: string
+  createdAt: string
+}
+
+export type DisputeCategory = 'wrong_amount' | 'not_delivered' | 'unauthorized' | 'duplicate' | 'other'
+export type DisputeStatus = 'open' | 'awaiting_review' | 'under_review' | 'resolved' | 'escalated' | 'closed'
+
+export interface Dispute {
+  id: string
+  transactionId: string
+  category: DisputeCategory
+  description: string
+  status: DisputeStatus
+  resolution?: string
+  slaDeadline: string
+  createdAt: string
+  transaction: Transaction
+}
+
+export interface NipBank {
+  bankCode: string
+  bankName: string
+}
+
+export interface NameEnquiry {
+  accountNumber: string
+  accountName: string
+  bankCode: string
+  bankName: string
+  sessionId: string
+}

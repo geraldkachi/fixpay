@@ -1,0 +1,88 @@
+@import "tailwindcss";
+
+/* ── Runtime brand tokens (set by TenantProvider on <html>) ── */
+:root {
+  --brand-primary: #007AFF;
+  --brand-secondary: #34C759;
+  --brand-accent: #FF9500;
+  --ios-blue: #007AFF;
+  --ios-green: #34C759;
+  --ios-red: #FF3B30;
+  --ios-orange: #FF9500;
+  --ios-gray: #8E8E93;
+  --ios-gray2: #AEAEB2;
+  --ios-gray3: #C7C7CC;
+  --ios-gray4: #D1D1D6;
+  --ios-gray5: #E5E5EA;
+  --ios-gray6: #F2F2F7;
+  --ios-separator: rgba(60,60,67,0.12);
+}
+
+@theme inline {
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", ui-sans-serif, sans-serif;
+  --color-brand: var(--brand-primary);
+  --color-brand-light: color-mix(in srgb, var(--brand-primary) 12%, white);
+  --color-ios-gray6: #F2F2F7;
+  --color-ios-gray5: #E5E5EA;
+  --color-ios-gray: #8E8E93;
+  --color-ios-red: #FF3B30;
+  --color-ios-green: #34C759;
+  --color-ios-orange: #FF9500;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+body {
+  margin: 0;
+  background: var(--ios-gray6);
+  overscroll-behavior: none;
+}
+#root {
+  min-height: 100dvh;
+  max-width: 480px;
+  margin: 0 auto;
+  position: relative;
+  background: var(--ios-gray6);
+  overflow-x: hidden;
+}
+
+.pb-safe  { padding-bottom: max(16px, env(safe-area-inset-bottom)); }
+.pt-safe  { padding-top: max(0px, env(safe-area-inset-top)); }
+.pb-nav   { padding-bottom: calc(max(16px, env(safe-area-inset-bottom)) + 68px); }
+.h-nav    { height: calc(64px + max(0px, env(safe-area-inset-bottom))); }
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+@keyframes slide-up  { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@keyframes fade-in   { from { opacity: 0; } to { opacity: 1; } }
+@keyframes scale-in  { from { transform: scale(0.94); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes spin-fast { to { transform: rotate(360deg); } }
+
+.animate-slide-up  { animation: slide-up  0.32s cubic-bezier(0.34,1.56,0.64,1) both; }
+.animate-fade-in   { animation: fade-in   0.2s ease both; }
+.animate-scale-in  { animation: scale-in  0.25s cubic-bezier(0.34,1.56,0.64,1) both; }
+.animate-spin-fast { animation: spin-fast 0.65s linear infinite; }
+
+.stagger > *:nth-child(1) { animation-delay: 0ms; }
+.stagger > *:nth-child(2) { animation-delay: 60ms; }
+.stagger > *:nth-child(3) { animation-delay: 120ms; }
+.stagger > *:nth-child(4) { animation-delay: 180ms; }
+.stagger > *:nth-child(5) { animation-delay: 240ms; }
+.stagger > *:nth-child(6) { animation-delay: 300ms; }
+
+.pressable { transition: transform 0.12s cubic-bezier(0.34,1.56,0.64,1), opacity 0.12s ease; cursor: pointer; -webkit-user-select: none; user-select: none; }
+.pressable:active { transform: scale(0.97); opacity: 0.82; }
+
+.card { background: white; border-radius: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.07), 0 0 1px rgba(0,0,0,0.04); }
+
+.ios-sep + .ios-sep { border-top: 0.5px solid var(--ios-separator); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
