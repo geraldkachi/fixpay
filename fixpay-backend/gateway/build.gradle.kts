@@ -13,7 +13,7 @@ dependencies {
     implementation(libs.spring.cloud.gateway)
     implementation(libs.spring.cloud.circuitbreaker)
     implementation(libs.spring.boot.actuator)
-    // Phase 1: uncomment to validate JWTs at the gateway
-    // implementation(libs.spring.boot.webflux)
-    // implementation(libs.spring.boot.oauth2.resource.server)
+    implementation(libs.spring.boot.webflux)
+    implementation(libs.spring.boot.oauth2.resource.server)
+    implementation("org.springframework.boot:spring-boot-starter-oauth2-client")
 }

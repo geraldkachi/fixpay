@@ -59,10 +59,14 @@
 - Added payment journal retrieval endpoint for customer/audit visibility.
 - Hardened webhook verification to HMAC-SHA256 signature validation against raw request payload.
 - Added event publishing hooks for payment, KYC, and mandate status lifecycle updates (NATS-backed, feature-flagged).
+- Hardened gateway JWT validation and downstream auth propagation:
+  - Gateway validates bearer JWTs before forwarding protected routes.
+  - Spoofed identity headers are stripped and trusted JWT-derived context headers are injected.
+  - Public exceptions retained for register, health/version, and VTpass webhook endpoints.
 
 ## Immediate Next Steps
 1. Wire real verification providers (BVN, NIN, CAC) behind the provider abstraction.
-2. Add gateway token relay for downstream secured services.
-3. Add gateway token relay and downstream auth propagation hardening.
-4. Add integration tests for wallet debit/reversal and webhook-driven state transitions.
-5. Wire real NIBSS mandate status provider sync instead of placeholder local activation.
+2. Add integration tests for wallet debit/reversal and webhook-driven state transitions.
+3. Wire real NIBSS mandate status provider sync instead of placeholder local activation.
+4. Add contract tests for gateway auth propagation headers and route-level access controls.
+5. Add alerting/monitoring for payment pending timeout and requery retries.
