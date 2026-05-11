@@ -5,7 +5,7 @@ plugins {
 
 dependencyManagement {
     imports {
-        mavenBom("org.springframework.cloud:spring-cloud-dependencies:${libs.versions.springCloud.get()}")
+        mavenBom("org.springframework.cloud:spring-cloud-dependencies:2024.0.1")
     }
 }
 

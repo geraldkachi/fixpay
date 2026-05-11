@@ -26,8 +26,8 @@ subprojects {
     }
 
     dependencies {
-        "testImplementation"("org.springframework.boot:spring-boot-starter-test:${libs.versions.springBoot.get()}")
-        "testImplementation"(libs.testcontainers.junit)
-        "testImplementation"(libs.testcontainers.postgresql)
+        "testImplementation"("org.springframework.boot:spring-boot-starter-test:3.4.1")
+        "testImplementation"("org.testcontainers:junit-jupiter:1.20.4")
+        "testImplementation"("org.testcontainers:postgresql:1.20.4")
     }
 }
