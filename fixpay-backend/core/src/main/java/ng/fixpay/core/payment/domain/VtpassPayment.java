@@ -58,6 +58,12 @@ public class VtpassPayment {
     @Column(name = "authorization_payload", columnDefinition = "TEXT")
     private String authorizationPayload;
 
+    @Column(name = "init_idempotency_key", length = 120, unique = true)
+    private String initIdempotencyKey;
+
+    @Column(name = "last_execute_idempotency_key", length = 120)
+    private String lastExecuteIdempotencyKey;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
@@ -74,7 +80,8 @@ public class VtpassPayment {
             String billerCustomerRef,
             BigDecimal amount,
             VtpassPaymentMethod paymentMethod,
-            String mandateReference
+                String mandateReference,
+                String initIdempotencyKey
     ) {
         this.userId = userId;
         this.tenantId = tenantId;
@@ -84,6 +91,7 @@ public class VtpassPayment {
         this.amount = amount;
         this.paymentMethod = paymentMethod;
         this.mandateReference = mandateReference;
+        this.initIdempotencyKey = initIdempotencyKey;
         this.paymentStatus = "initiated";
         this.providerStatus = "pending";
     }
@@ -108,8 +116,14 @@ public class VtpassPayment {
     public String getExternalReference() { return externalReference; }
     public String getMandateReference() { return mandateReference; }
     public String getAuthorizationPayload() { return authorizationPayload; }
+    public String getInitIdempotencyKey() { return initIdempotencyKey; }
+    public String getLastExecuteIdempotencyKey() { return lastExecuteIdempotencyKey; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
+
+    public void setLastExecuteIdempotencyKey(String lastExecuteIdempotencyKey) {
+        this.lastExecuteIdempotencyKey = lastExecuteIdempotencyKey;
+    }
 
     public void markAuthorized(String providerStatus, String externalReference, String authorizationPayload) {
         this.paymentStatus = "authorized";

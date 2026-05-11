@@ -23,9 +23,10 @@ public class VtpassPaymentController {
     @PostMapping("/initialize")
     public ApiResponse<InitializeVtpassPaymentResponse> initialize(
             @AuthenticationPrincipal Jwt jwt,
+            @RequestHeader(name = "x-idempotency-key", required = false) String idempotencyKey,
             @Valid @RequestBody InitializeVtpassPaymentRequest request
     ) {
-        return ApiResponse.ok("VTpass payment initialized", paymentService.initialize(jwt, request));
+        return ApiResponse.ok("VTpass payment initialized", paymentService.initialize(jwt, request, idempotencyKey));
     }
 
     @GetMapping("/{paymentReference}")
@@ -39,9 +40,10 @@ public class VtpassPaymentController {
     @PostMapping("/{paymentReference}/execute")
     public ApiResponse<VtpassPaymentStatusResponse> execute(
             @AuthenticationPrincipal Jwt jwt,
+            @RequestHeader(name = "x-idempotency-key", required = false) String idempotencyKey,
             @PathVariable String paymentReference
     ) {
-        return ApiResponse.ok("VTpass payment execution attempted", paymentService.execute(jwt, paymentReference));
+        return ApiResponse.ok("VTpass payment execution attempted", paymentService.execute(jwt, paymentReference, idempotencyKey));
     }
 
     @PostMapping("/{paymentReference}/requery")

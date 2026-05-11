@@ -7,4 +7,5 @@ import java.util.UUID;
 
 public interface VtpassPaymentRepository extends JpaRepository<VtpassPayment, UUID> {
     Optional<VtpassPayment> findByPaymentReference(String paymentReference);
+    Optional<VtpassPayment> findByInitIdempotencyKeyAndUserId(String initIdempotencyKey, UUID userId);
 }

@@ -48,10 +48,18 @@
   - Get mandate by reference
   - Sync mandate status
 - Added active mandate enforcement before initializing `NIBSS_MANDATE` payment rail.
+- Added idempotency support for:
+  - Payment initialization via `x-idempotency-key`
+  - Payment execution via `x-idempotency-key`
+- Added payment journal/audit trail persistence capturing key lifecycle events:
+  - initialization
+  - execution start
+  - wallet debit/reversal
+  - provider/requery/webhook status transitions
 
 ## Immediate Next Steps
 1. Wire real verification providers (BVN, NIN, CAC) behind the provider abstraction.
 2. Add gateway token relay for downstream secured services.
-3. Add idempotency keys and duplicate-request protection for payment initialization and execute flow.
-4. Persist transaction journal entries for each debit/reversal/provider update.
-5. Publish events for KYC verified and bill payment completed to NATS.
+3. Publish events for KYC verified and bill payment completed to NATS.
+4. Add payment journal retrieval endpoint for operations/audit tooling.
+5. Harden webhook signature verification with HMAC payload signing.

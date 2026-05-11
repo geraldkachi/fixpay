@@ -3,6 +3,8 @@ package ng.fixpay.core.payment;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import ng.fixpay.core.mandate.MandateService;
+import ng.fixpay.core.payment.domain.PaymentJournalEntry;
+import ng.fixpay.core.payment.domain.PaymentJournalEntryRepository;
 import ng.fixpay.core.payment.domain.VtpassPayment;
 import ng.fixpay.core.payment.domain.VtpassPaymentRepository;
 import ng.fixpay.core.payment.dto.InitializeVtpassPaymentRequest;
@@ -27,6 +29,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 
 @Service
@@ -34,6 +37,7 @@ public class VtpassPaymentService {
 
     private final UserRepository userRepository;
     private final VtpassPaymentRepository paymentRepository;
+    private final PaymentJournalEntryRepository paymentJournalRepository;
     private final WalletRepository walletRepository;
     private final VtpassClient vtpassClient;
     private final ObjectMapper objectMapper;
@@ -43,6 +47,7 @@ public class VtpassPaymentService {
     public VtpassPaymentService(
             UserRepository userRepository,
             VtpassPaymentRepository paymentRepository,
+            PaymentJournalEntryRepository paymentJournalRepository,
             WalletRepository walletRepository,
             VtpassClient vtpassClient,
             ObjectMapper objectMapper,
@@ -51,6 +56,7 @@ public class VtpassPaymentService {
     ) {
         this.userRepository = userRepository;
         this.paymentRepository = paymentRepository;
+        this.paymentJournalRepository = paymentJournalRepository;
         this.walletRepository = walletRepository;
         this.vtpassClient = vtpassClient;
         this.objectMapper = objectMapper;
@@ -59,10 +65,17 @@ public class VtpassPaymentService {
     }
 
     @Transactional
-    public InitializeVtpassPaymentResponse initialize(Jwt jwt, InitializeVtpassPaymentRequest request) {
+    public InitializeVtpassPaymentResponse initialize(Jwt jwt, InitializeVtpassPaymentRequest request, String idempotencyKey) {
         UUID keycloakId = UUID.fromString(jwt.getSubject());
         AppUser user = userRepository.findByKeycloakId(keycloakId)
                 .orElseThrow(() -> FixPayException.notFound("User"));
+
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            var existing = paymentRepository.findByInitIdempotencyKeyAndUserId(idempotencyKey, user.getId());
+            if (existing.isPresent()) {
+                return toInitializeResponse(existing.get(), "Duplicate initialize request detected. Existing payment returned.", null, null);
+            }
+        }
 
         if (request.paymentMethod() == VtpassPaymentMethod.NIBSS_MANDATE
                 && (request.mandateReference() == null || request.mandateReference().isBlank())) {
@@ -83,7 +96,8 @@ public class VtpassPaymentService {
                 request.billerCustomerRef(),
                 request.amount(),
                 request.paymentMethod(),
-                request.mandateReference()
+            request.mandateReference(),
+            (idempotencyKey == null || idempotencyKey.isBlank()) ? null : idempotencyKey
         );
 
         RailDecision decision = decideRailAuthorization(request, paymentReference);
@@ -94,18 +108,21 @@ public class VtpassPaymentService {
         }
 
         paymentRepository.save(payment);
-
-        return new InitializeVtpassPaymentResponse(
-                payment.getPaymentReference(),
-                payment.getPaymentStatus(),
-                payment.getPaymentMethod(),
-                payment.getAmount(),
-                payment.getProviderStatus(),
-                decision.authorizationMessage(),
-                decision.ussdCode(),
-                decision.checkoutUrl(),
-                payment.getMandateReference()
+        journal(
+            payment,
+            "PAYMENT_INITIALIZED",
+            payment.getAmount(),
+            null,
+            null,
+            "Payment initialized",
+            toJson(Map.of(
+                "paymentMethod", payment.getPaymentMethod().name(),
+                "providerStatus", payment.getProviderStatus(),
+                "idempotencyKey", Objects.toString(idempotencyKey, "")
+            ))
         );
+
+        return toInitializeResponse(payment, decision.authorizationMessage(), decision.ussdCode(), decision.checkoutUrl());
     }
 
     @Transactional(readOnly = true)
@@ -137,7 +154,7 @@ public class VtpassPaymentService {
     }
 
     @Transactional
-    public VtpassPaymentStatusResponse execute(Jwt jwt, String paymentReference) {
+    public VtpassPaymentStatusResponse execute(Jwt jwt, String paymentReference, String executeIdempotencyKey) {
         UUID keycloakId = UUID.fromString(jwt.getSubject());
         AppUser user = userRepository.findByKeycloakId(keycloakId)
                 .orElseThrow(() -> FixPayException.notFound("User"));
@@ -152,6 +169,23 @@ public class VtpassPaymentService {
         if (!"authorized".equals(payment.getPaymentStatus())) {
             throw FixPayException.badRequest("Payment must be authorized before execution");
         }
+
+        if (executeIdempotencyKey != null && !executeIdempotencyKey.isBlank()) {
+            if (executeIdempotencyKey.equals(payment.getLastExecuteIdempotencyKey())) {
+                return toStatusResponse(payment);
+            }
+            payment.setLastExecuteIdempotencyKey(executeIdempotencyKey);
+        }
+
+        journal(
+                payment,
+                "PAYMENT_EXECUTION_STARTED",
+                payment.getAmount(),
+                null,
+                null,
+                "Payment execution started",
+                toJson(Map.of("paymentMethod", payment.getPaymentMethod().name()))
+        );
 
         Wallet wallet = null;
         BigDecimal originalBalance = null;
@@ -169,6 +203,15 @@ public class VtpassPaymentService {
 
             wallet.setBalance(wallet.getBalance().subtract(payment.getAmount()));
             wallet.setLedgerBalance(wallet.getLedgerBalance().subtract(payment.getAmount()));
+                journal(
+                    payment,
+                    "WALLET_DEBITED",
+                    payment.getAmount(),
+                    originalBalance,
+                    wallet.getBalance(),
+                    "Wallet debited for VTpass payment",
+                    null
+                );
         }
 
         String requestId = generateRequestId();
@@ -182,29 +225,53 @@ public class VtpassPaymentService {
 
         if (result.successful()) {
             payment.markCompleted(result.providerStatus(), result.providerCode(), result.providerMessage(), result.requestId());
+            journal(
+                    payment,
+                    "PROVIDER_COMPLETED",
+                    payment.getAmount(),
+                    null,
+                    null,
+                    "Provider completed payment",
+                    result.rawResponse()
+            );
         } else if (result.pending()) {
             payment.markProcessing(result.providerStatus(), result.providerCode(), result.providerMessage(), result.requestId());
+            journal(
+                    payment,
+                    "PROVIDER_PENDING",
+                    payment.getAmount(),
+                    null,
+                    null,
+                    "Provider accepted payment and marked it pending",
+                    result.rawResponse()
+            );
         } else {
             if (wallet != null && originalBalance != null && originalLedger != null) {
                 wallet.setBalance(originalBalance);
                 wallet.setLedgerBalance(originalLedger);
+                journal(
+                        payment,
+                        "WALLET_REVERSED",
+                        payment.getAmount(),
+                        originalBalance.subtract(payment.getAmount()),
+                        originalBalance,
+                        "Wallet reversal after provider failure",
+                        null
+                );
             }
             payment.markFailed(result.providerStatus(), result.providerCode(), result.providerMessage(), result.requestId());
+            journal(
+                    payment,
+                    "PROVIDER_FAILED",
+                    payment.getAmount(),
+                    null,
+                    null,
+                    "Provider failed payment",
+                    result.rawResponse()
+            );
         }
 
-        return new VtpassPaymentStatusResponse(
-                payment.getPaymentReference(),
-                payment.getPaymentStatus(),
-                payment.getProviderStatus(),
-                payment.getProviderCode(),
-                payment.getProviderMessage(),
-                payment.getPaymentMethod(),
-                payment.getAmount(),
-                payment.getExternalReference(),
-                payment.getMandateReference(),
-                payment.getCreatedAt(),
-                payment.getUpdatedAt()
-        );
+        return toStatusResponse(payment);
     }
 
     @Transactional
@@ -227,25 +294,16 @@ public class VtpassPaymentService {
         VtpassPurchaseResult result = vtpassClient.requery(payment.getExternalReference());
         if (result.successful()) {
             payment.markCompleted(result.providerStatus(), result.providerCode(), result.providerMessage(), result.requestId());
+            journal(payment, "REQUERY_COMPLETED", payment.getAmount(), null, null, "Requery completed payment", result.rawResponse());
         } else if (result.pending()) {
             payment.markProcessing(result.providerStatus(), result.providerCode(), result.providerMessage(), result.requestId());
+            journal(payment, "REQUERY_PENDING", payment.getAmount(), null, null, "Requery indicates pending", result.rawResponse());
         } else {
             payment.markFailed(result.providerStatus(), result.providerCode(), result.providerMessage(), result.requestId());
+            journal(payment, "REQUERY_FAILED", payment.getAmount(), null, null, "Requery indicates failure", result.rawResponse());
         }
 
-        return new VtpassPaymentStatusResponse(
-                payment.getPaymentReference(),
-                payment.getPaymentStatus(),
-                payment.getProviderStatus(),
-                payment.getProviderCode(),
-                payment.getProviderMessage(),
-                payment.getPaymentMethod(),
-                payment.getAmount(),
-                payment.getExternalReference(),
-                payment.getMandateReference(),
-                payment.getCreatedAt(),
-                payment.getUpdatedAt()
-        );
+        return toStatusResponse(payment);
     }
 
     @Transactional
@@ -266,7 +324,8 @@ public class VtpassPaymentService {
         }
 
         payment.markAuthorized("authorized", payment.getExternalReference(), payment.getAuthorizationPayload());
-        return execute(jwt, paymentReference);
+        journal(payment, "CALLBACK_AUTHORIZED", payment.getAmount(), null, null, "Callback moved payment to authorized", null);
+        return execute(jwt, paymentReference, null);
     }
 
     @Transactional
@@ -285,12 +344,38 @@ public class VtpassPaymentService {
 
         if ("delivered".equals(status) || "completed".equals(status) || "success".equals(status)) {
             payment.markCompleted(request.providerStatus(), request.providerCode(), request.providerMessage(), externalRef);
+            journal(payment, "WEBHOOK_COMPLETED", payment.getAmount(), null, null, "Webhook completed payment", toJson(request));
         } else if ("pending".equals(status) || "processing".equals(status)) {
             payment.markProcessing(request.providerStatus(), request.providerCode(), request.providerMessage(), externalRef);
+            journal(payment, "WEBHOOK_PENDING", payment.getAmount(), null, null, "Webhook marked payment pending", toJson(request));
         } else {
             payment.markFailed(request.providerStatus(), request.providerCode(), request.providerMessage(), externalRef);
+            journal(payment, "WEBHOOK_FAILED", payment.getAmount(), null, null, "Webhook marked payment failed", toJson(request));
         }
 
+        return toStatusResponse(payment);
+    }
+
+    private InitializeVtpassPaymentResponse toInitializeResponse(
+            VtpassPayment payment,
+            String authorizationMessage,
+            String ussdCode,
+            String checkoutUrl
+    ) {
+        return new InitializeVtpassPaymentResponse(
+                payment.getPaymentReference(),
+                payment.getPaymentStatus(),
+                payment.getPaymentMethod(),
+                payment.getAmount(),
+                payment.getProviderStatus(),
+                authorizationMessage,
+                ussdCode,
+                checkoutUrl,
+                payment.getMandateReference()
+        );
+    }
+
+    private VtpassPaymentStatusResponse toStatusResponse(VtpassPayment payment) {
         return new VtpassPaymentStatusResponse(
                 payment.getPaymentReference(),
                 payment.getPaymentStatus(),
@@ -304,6 +389,27 @@ public class VtpassPaymentService {
                 payment.getCreatedAt(),
                 payment.getUpdatedAt()
         );
+    }
+
+    private void journal(
+            VtpassPayment payment,
+            String eventType,
+            BigDecimal amount,
+            BigDecimal balanceBefore,
+            BigDecimal balanceAfter,
+            String note,
+            String payload
+    ) {
+        paymentJournalRepository.save(new PaymentJournalEntry(
+                payment.getId(),
+                payment.getPaymentReference(),
+                eventType,
+                amount,
+                balanceBefore,
+                balanceAfter,
+                note,
+                payload
+        ));
     }
 
     private RailDecision decideRailAuthorization(InitializeVtpassPaymentRequest request, String paymentReference) {
