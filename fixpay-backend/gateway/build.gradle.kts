@@ -16,4 +16,5 @@ dependencies {
     implementation(libs.spring.boot.webflux)
     implementation(libs.spring.boot.oauth2.resource.server)
     implementation("org.springframework.boot:spring-boot-starter-oauth2-client")
+    testImplementation("org.springframework.security:spring-security-test")
 }

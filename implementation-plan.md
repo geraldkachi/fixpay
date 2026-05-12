@@ -68,10 +68,14 @@
   - Sync mandate now re-queries provider status API adapter.
   - Provider reference is persisted for status correlation.
 - Added mandate provider outcome tests (active, pending, failed) for create/sync flows.
+- Added gateway auth propagation contract tests:
+  - Verifies protected routes reject unauthenticated requests.
+  - Verifies public route exceptions bypass auth gate.
+  - Verifies spoofed identity headers are stripped and JWT-derived identity headers are injected.
 
 ## Immediate Next Steps
 1. Wire real verification providers (BVN, NIN, CAC) behind the provider abstraction.
 2. Add integration tests for wallet debit/reversal and webhook-driven state transitions.
-3. Add contract tests for gateway auth propagation headers and route-level access controls.
-4. Add alerting/monitoring for payment pending timeout and requery retries.
-5. Add end-to-end smoke tests across gateway -> core for protected payment and mandate APIs.
+3. Add alerting/monitoring for payment pending timeout and requery retries.
+4. Add end-to-end smoke tests across gateway -> core for protected payment and mandate APIs.
+5. Add failure-injection tests for provider outages and retry/fallback behavior.
