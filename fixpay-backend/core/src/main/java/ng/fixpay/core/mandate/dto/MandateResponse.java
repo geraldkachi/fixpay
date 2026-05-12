@@ -6,6 +6,7 @@ import java.time.LocalDate;
 
 public record MandateResponse(
         String mandateReference,
+        String providerReference,
         String bankCode,
         String accountNumber,
         BigDecimal maxAmount,

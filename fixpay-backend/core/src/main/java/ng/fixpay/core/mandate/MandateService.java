@@ -5,6 +5,7 @@ import ng.fixpay.core.mandate.domain.NibssMandate;
 import ng.fixpay.core.mandate.domain.NibssMandateRepository;
 import ng.fixpay.core.mandate.dto.CreateMandateRequest;
 import ng.fixpay.core.mandate.dto.MandateResponse;
+import ng.fixpay.core.mandate.provider.MandateProviderClient;
 import ng.fixpay.core.user.domain.AppUser;
 import ng.fixpay.core.user.domain.UserRepository;
 import ng.fixpay.shared.exception.FixPayException;
@@ -21,15 +22,18 @@ public class MandateService {
     private final UserRepository userRepository;
     private final NibssMandateRepository mandateRepository;
     private final DomainEventPublisher eventPublisher;
+    private final MandateProviderClient mandateProviderClient;
 
     public MandateService(
             UserRepository userRepository,
             NibssMandateRepository mandateRepository,
-            DomainEventPublisher eventPublisher
+            DomainEventPublisher eventPublisher,
+            MandateProviderClient mandateProviderClient
     ) {
         this.userRepository = userRepository;
         this.mandateRepository = mandateRepository;
         this.eventPublisher = eventPublisher;
+        this.mandateProviderClient = mandateProviderClient;
     }
 
     @Transactional
@@ -50,12 +54,17 @@ public class MandateService {
                 request.endDate()
         );
 
-        // Local bootstrap state for now; real provider callback/sync will update this.
-        mandate.updateStatus("active", "Mandate provisioned for debit authorization");
+        var providerResult = mandateProviderClient.createMandate(mandateReference, request);
+        mandate.updateStatus(
+                providerResult.status(),
+                providerResult.providerMessage(),
+                providerResult.providerReference()
+        );
         mandateRepository.save(mandate);
         eventPublisher.publish("mandate.status.updated", java.util.Map.of(
             "mandateReference", mandate.getMandateReference(),
             "status", mandate.getStatus(),
+            "providerReference", java.util.Objects.toString(mandate.getProviderReference(), ""),
             "tenantId", mandate.getTenantId().toString(),
             "userId", mandate.getUserId().toString()
         ));
@@ -103,11 +112,19 @@ public class MandateService {
             throw FixPayException.forbidden("You cannot sync another user's mandate");
         }
 
-        // Placeholder sync behavior until external NIBSS status API is wired.
-        mandate.updateStatus("active", "Mandate status synchronized");
+        var providerResult = mandateProviderClient.syncMandateStatus(
+            mandate.getMandateReference(),
+            mandate.getProviderReference()
+        );
+        mandate.updateStatus(
+            providerResult.status(),
+            providerResult.providerMessage(),
+            providerResult.providerReference() == null ? mandate.getProviderReference() : providerResult.providerReference()
+        );
         eventPublisher.publish("mandate.status.updated", java.util.Map.of(
             "mandateReference", mandate.getMandateReference(),
             "status", mandate.getStatus(),
+            "providerReference", java.util.Objects.toString(mandate.getProviderReference(), ""),
             "tenantId", mandate.getTenantId().toString(),
             "userId", mandate.getUserId().toString()
         ));
@@ -125,6 +142,7 @@ public class MandateService {
     private MandateResponse toResponse(NibssMandate mandate) {
         return new MandateResponse(
                 mandate.getMandateReference(),
+            mandate.getProviderReference(),
                 mandate.getBankCode(),
                 mandate.getAccountNumber(),
                 mandate.getMaxAmount(),

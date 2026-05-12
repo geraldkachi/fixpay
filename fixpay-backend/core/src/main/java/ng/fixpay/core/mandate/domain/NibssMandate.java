@@ -45,6 +45,9 @@ public class NibssMandate {
     @Column(name = "provider_message", length = 255)
     private String providerMessage;
 
+    @Column(name = "provider_reference", length = 120)
+    private String providerReference;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
@@ -91,11 +94,13 @@ public class NibssMandate {
     public LocalDate getStartDate() { return startDate; }
     public LocalDate getEndDate() { return endDate; }
     public String getProviderMessage() { return providerMessage; }
+    public String getProviderReference() { return providerReference; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
 
-    public void updateStatus(String status, String providerMessage) {
+    public void updateStatus(String status, String providerMessage, String providerReference) {
         this.status = status;
         this.providerMessage = providerMessage;
+        this.providerReference = providerReference;
     }
 }

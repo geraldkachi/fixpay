@@ -63,10 +63,14 @@
   - Gateway validates bearer JWTs before forwarding protected routes.
   - Spoofed identity headers are stripped and trusted JWT-derived context headers are injected.
   - Public exceptions retained for register, health/version, and VTpass webhook endpoints.
+- Replaced placeholder mandate activation/sync with provider-backed mandate integration:
+  - Create mandate now calls provider API adapter.
+  - Sync mandate now re-queries provider status API adapter.
+  - Provider reference is persisted for status correlation.
 
 ## Immediate Next Steps
 1. Wire real verification providers (BVN, NIN, CAC) behind the provider abstraction.
 2. Add integration tests for wallet debit/reversal and webhook-driven state transitions.
-3. Wire real NIBSS mandate status provider sync instead of placeholder local activation.
-4. Add contract tests for gateway auth propagation headers and route-level access controls.
-5. Add alerting/monitoring for payment pending timeout and requery retries.
+3. Add contract tests for gateway auth propagation headers and route-level access controls.
+4. Add alerting/monitoring for payment pending timeout and requery retries.
+5. Add integration tests for mandate create/sync provider outcomes (active, pending, failed).

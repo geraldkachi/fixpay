@@ -67,6 +67,10 @@ fixpay:
     webhook-secret: ${VTPASS_WEBHOOK_SECRET:dev_vtpass_webhook_secret}
   mandate:
     provider: ${MANDATE_PROVIDER:nibss-npsm}
+    enabled: ${MANDATE_PROVIDER_ENABLED:false}
+    base-url: ${MANDATE_BASE_URL:https://sandbox.nibss.local}
+    api-key: ${MANDATE_API_KEY:}
+    secret-key: ${MANDATE_SECRET_KEY:}
 
 logging:
   level:
