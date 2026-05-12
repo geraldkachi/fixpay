@@ -57,3 +57,7 @@ logs/
 *.jks
 *.pfx
 secrets/
+
+VTPASS.txt
+*.credentials
+.env.test
