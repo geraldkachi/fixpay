@@ -75,9 +75,19 @@
 - Added initial gateway smoke-test harness using Reactor Netty test stub + dedicated smoke profile.
 - Stabilized gateway test suite by disabling one flaky authenticated smoke case pending Reactor Netty stream-state fix.
 
+- Added real verification providers for BVN, NIN, and CAC:
+  - BvnVerificationProvider: HTTP-based integration for 11-digit BVN verification.
+  - NinVerificationProvider: HTTP-based integration for 11-digit NIN verification.
+  - CacVerificationProvider: HTTP-based integration for CAC registration verification.
+  - CompositeIdentityVerificationProvider: Orchestrator that validates CAC first, then all directors' BVN+NIN in sequence.
+- Added environment-based provider selection:
+  - Mock provider (default): validated locally without external calls.
+  - Composite provider: orchestrates real BVN/NIN/CAC integrations.
+- Added configuration properties for all providers (base-url, api-key, enabled flags).
+
 ## Immediate Next Steps
-1. Wire real verification providers (BVN, NIN, CAC) behind the provider abstraction.
-2. Add integration tests for wallet debit/reversal and webhook-driven state transitions.
-3. Add alerting/monitoring for payment pending timeout and requery retries.
-4. Re-enable authenticated gateway -> core smoke flow after fixing Reactor Netty inbound receiver conflict in test harness.
-5. Add failure-injection tests for provider outages and retry/fallback behavior.
+1. Add integration tests for wallet debit/reversal and webhook-driven state transitions.
+2. Add alerting/monitoring for payment pending timeout and requery retries.
+3. Re-enable authenticated gateway -> core smoke flow after fixing Reactor Netty inbound receiver conflict in test harness.
+4. Add failure-injection tests for provider outages and retry/fallback behavior.
+5. Wire up provider integrations to real BVN/NIN/CAC API endpoints (mocked in sandbox environment).
