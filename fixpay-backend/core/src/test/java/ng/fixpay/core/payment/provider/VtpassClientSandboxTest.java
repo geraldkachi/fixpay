@@ -68,24 +68,16 @@ class VtpassClientSandboxTest {
 
         System.out.println("[VTpass sandbox] airtime purchase response: " + result.rawResponse());
 
-        // Primary assertion: connectivity and wire format are correct.
-        // A structured JSON response with a non-null providerCode proves the request reached
-        // the VTpass sandbox and was understood by their API.
-        //
-        // If the sandbox account has not yet whitelisted "airtel" (code 028), the test still
-        // passes — the wire format is the concern here. Go to your VTpass sandbox dashboard
-        // and enable "Airtel Airtime VTU" to get a successful/pending response.
         assertAll(
-            () -> assertNotNull(result.providerCode(),  "providerCode must be non-null — request reached VTpass"),
-            () -> assertNotNull(result.rawResponse(),   "rawResponse must be non-null"),
-            () -> assertFalse(result.rawResponse().isBlank(), "rawResponse must not be blank")
+            () -> assertNotNull(result.requestId(),   "requestId must be non-null"),
+            () -> assertNotNull(result.rawResponse(), "rawResponse must be non-null"),
+            () -> assertFalse(result.rawResponse().isBlank(), "rawResponse must not be blank"),
+            () -> assertTrue(
+                result.successful() || result.pending(),
+                "Expected successful or pending — got code=" + result.providerCode()
+                    + " message=" + result.providerMessage()
+            )
         );
-
-        if (!result.successful() && !result.pending()) {
-            System.out.println("[VTpass sandbox] NOTE: service returned code=" + result.providerCode()
-                + " message=" + result.providerMessage()
-                + ". Enable 'Airtel Airtime VTU' on the VTpass sandbox dashboard to get a success/pending response.");
-        }
 
         // Save requestId for the requery test that follows
         capturedRequestId = result.requestId();
@@ -140,7 +132,17 @@ class VtpassClientSandboxTest {
 
         System.out.println("[VTpass sandbox] data plan response: " + result.rawResponse());
 
-        assertNotNull(result.requestId(),   "requestId must be non-null even for data plan purchase");
-        assertNotNull(result.rawResponse(), "rawResponse must be non-null");
+        // code 019 (duplicate transaction) is expected in sandbox when the same phone number
+        // was used seconds earlier in Test 1. The wire format and parsing are validated either way.
+        assertAll(
+            () -> assertNotNull(result.requestId(),   "requestId must be non-null even for data plan purchase"),
+            () -> assertNotNull(result.rawResponse(), "rawResponse must be non-null"),
+            () -> assertNotNull(result.providerCode(), "providerCode must be non-null"),
+            () -> assertTrue(
+                result.successful() || result.pending() || "019".equals(result.providerCode()),
+                "Expected success, pending, or duplicate (019) — got code=" + result.providerCode()
+                    + " message=" + result.providerMessage()
+            )
+        );
     }
 }
