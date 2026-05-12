@@ -59,7 +59,20 @@ fixpay:
   events:
     enabled: ${FIXPAY_EVENTS_ENABLED:false}
   verification:
+    provider: ${VERIFICATION_PROVIDER:mock}
     report-base-url: ${VERIFICATION_REPORT_BASE_URL:https://reports.fixpay.local/kyc}
+    bvn:
+      enabled: ${VERIFICATION_BVN_ENABLED:false}
+      base-url: ${VERIFICATION_BVN_BASE_URL:https://api.bvn-provider.local}
+      api-key: ${VERIFICATION_BVN_API_KEY:}
+    nin:
+      enabled: ${VERIFICATION_NIN_ENABLED:false}
+      base-url: ${VERIFICATION_NIN_BASE_URL:https://api.nin-provider.local}
+      api-key: ${VERIFICATION_NIN_API_KEY:}
+    cac:
+      enabled: ${VERIFICATION_CAC_ENABLED:false}
+      base-url: ${VERIFICATION_CAC_BASE_URL:https://api.cac-provider.local}
+      api-key: ${VERIFICATION_CAC_API_KEY:}
   vtpass:
     base-url: ${VTPASS_BASE_URL:https://sandbox.vtpass.com}
     api-key: ${VTPASS_API_KEY:}
