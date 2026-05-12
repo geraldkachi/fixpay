@@ -86,7 +86,14 @@
 - Added configuration properties for all providers (base-url, api-key, enabled flags).
 
 ## Immediate Next Steps
-1. Add integration tests for wallet debit/reversal and webhook-driven state transitions.
+1. Add integration tests for wallet debit/reversal and webhook-driven state transitions:
+   - Wallet debit scenario: payment execute with WALLET method should reduce balance.
+   - Wallet reversal scenario: provider failure should restore balance from debit.
+   - Webhook completed: incoming webhook with "delivered"/"success" status should mark payment completed and publish event.
+   - Webhook pending: incoming webhook with "processing"/"pending" status should mark payment pending and publish event.
+   - Webhook failed: incoming webhook with error status should mark payment failed and publish event.
+   - Webhook signature validation: invalid HMAC should reject webhook.
+   - Idempotent execution: duplicate execute idempotency key should not debit wallet twice.
 2. Add alerting/monitoring for payment pending timeout and requery retries.
 3. Re-enable authenticated gateway -> core smoke flow after fixing Reactor Netty inbound receiver conflict in test harness.
 4. Add failure-injection tests for provider outages and retry/fallback behavior.
