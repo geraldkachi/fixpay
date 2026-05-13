@@ -30,18 +30,21 @@ import { DataScreen }        from '@/modules/payments/DataScreen'
 import { TvScreen }          from '@/modules/payments/TvScreen'
 import { ElectricityScreen } from '@/modules/payments/ElectricityScreen'
 import { EducationScreen }   from '@/modules/payments/EducationScreen'
+import { InsuranceScreen }   from '@/modules/payments/InsuranceScreen'
 import { ReceiptScreen }     from '@/modules/payments/ReceiptScreen'
 
 // Send
 import { SendScreen }        from '@/modules/send/SendScreen'
 
 // Wallet
-import { WalletScreen }      from '@/modules/wallet/WalletScreen'
-import { FundWalletScreen }  from '@/modules/wallet/FundWalletScreen'
+import { WalletScreen }            from '@/modules/wallet/WalletScreen'
+import { FundWalletScreen }        from '@/modules/wallet/FundWalletScreen'
+import { TransactionDetailScreen } from '@/modules/wallet/TransactionDetailScreen'
 
 // More
 import { MoreScreen }           from '@/modules/more/MoreScreen'
 import { ProfileScreen }        from '@/modules/more/ProfileScreen'
+import { SecurityScreen }       from '@/modules/more/SecurityScreen'
 import { MandatesScreen }       from '@/modules/more/MandatesScreen'
 import { DisputesScreen }       from '@/modules/more/DisputesScreen'
 import { DisputeDetailScreen }  from '@/modules/more/DisputeDetailScreen'
@@ -51,6 +54,12 @@ import { DisputeDetailScreen }  from '@/modules/more/DisputeDetailScreen'
 function RequireAuth() {
   const { isAuthenticated, kycCompleted, pinCreated } = useAuthStore()
   const { pathname } = useLocation()
+
+  // Always show splash on first page load of a new browser session
+  if (!sessionStorage.getItem('splash_shown')) {
+    return <Navigate to="/splash" replace />
+  }
+
   if (!isAuthenticated)                        return <Navigate to="/auth/login" replace />
   if (!pinCreated)                             return <Navigate to="/auth/pin"   replace />
   if (!kycCompleted && pathname !== '/kyc')    return <Navigate to="/kyc"        replace />
@@ -90,9 +99,12 @@ const router = createBrowserRouter([
       { path: 'payments/tv',           element: <TvScreen /> },
       { path: 'payments/electricity',  element: <ElectricityScreen /> },
       { path: 'payments/education',    element: <EducationScreen /> },
+      { path: 'payments/insurance',    element: <InsuranceScreen /> },
       { path: 'payments/receipt',      element: <ReceiptScreen /> },
-      { path: 'wallet/fund',           element: <FundWalletScreen /> },
-      { path: 'more/profile',          element: <ProfileScreen /> },
+      { path: 'wallet/fund',                element: <FundWalletScreen /> },
+      { path: 'wallet/transactions/:id',  element: <TransactionDetailScreen /> },
+      { path: 'more/profile',             element: <ProfileScreen /> },
+      { path: 'more/security',            element: <SecurityScreen /> },
       { path: 'more/mandates',         element: <MandatesScreen /> },
       { path: 'more/disputes',         element: <DisputesScreen /> },
       { path: 'more/disputes/:id',     element: <DisputeDetailScreen /> },

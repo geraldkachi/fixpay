@@ -4,9 +4,10 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useQuery } from '@tanstack/react-query'
-import { api } from '@/lib/api'
 import { queryClient } from '@/lib/query-client'
 import type { ServiceVariation } from '@/types'
+import { paymentsService } from '@/lib/services/payments.service'
+import { authService } from '@/lib/services/auth.service'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
@@ -45,11 +46,10 @@ export function EducationScreen() {
   const serviceId = watch('serviceId')
   const variationCode = watch('variationCode')
 
-  const { data: varData, isLoading: varsLoading } = useQuery({
+  const { data: variations = [], isLoading: varsLoading } = useQuery<ServiceVariation[]>({
     queryKey: ['variations', serviceId],
-    queryFn: () => api.get<{ variations: ServiceVariation[] }>(`/payments/variations/${serviceId}`).then(r => r.data),
+    queryFn: () => paymentsService.getVariations(serviceId),
   })
-  const variations = varData?.variations ?? []
   const chosen = variations.find(v => v.variationCode === variationCode)
 
   const onSubmit = (data: FormData) => { setPending(data); setPin(''); setPinError(''); setShowPin(true) }
@@ -59,14 +59,14 @@ export function EducationScreen() {
     if (val.length < 6 || !pending || submitting) return
     setSubmitting(true)
     try {
-      await api.post('/auth/pin/verify', { pin: val })
-      const res = await api.post<{ requestId: string; transaction_date: string; purchased_code?: string; Pin?: string }>('/payments/education', pending)
+      await authService.verifyPin(val)
+      const res = await paymentsService.education(pending)
       queryClient.invalidateQueries({ queryKey: ['wallet'] })
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
       navigate('/payments/receipt', {
         state: {
           type: 'education', serviceId, exam: chosen?.name, amount: parseFloat(chosen?.variationAmount ?? '0'),
-          pin: res.data.Pin ?? res.data.purchased_code, requestId: res.data.requestId, date: res.data.transaction_date,
+          pin: res.Pin ?? res.purchased_code, requestId: res.requestId, date: res.transaction_date,
         },
       })
     } catch {

@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "build:mock": "tsc -b && vite build --mode mock",
+    "build:e2e": "tsc -b && vite build --mode e2e",
     "lint": "eslint .",
     "preview": "vite preview"
   },
@@ -16,6 +17,7 @@
     "@tanstack/react-query": "^5.100.10",
     "axios": "^1.16.0",
     "clsx": "^2.1.1",
+    "dexie": "^4.4.2",
     "motion": "^12.38.0",
     "msw": "^2.14.6",
     "react": "^19.2.6",

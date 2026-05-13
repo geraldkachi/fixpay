@@ -80,6 +80,41 @@ public class VtpassClient {
         }
     }
 
+    /** Returns variation codes for a service. Response JSON is returned as-is. */
+    public String getVariations(String serviceId) {
+        try {
+            return restClient.get()
+                    .uri("/api/service-variations?serviceID={id}", serviceId)
+                    .header("api-key", apiKey)
+                    .retrieve()
+                    .body(String.class);
+        } catch (Exception ex) {
+            throw FixPayException.badRequest("VTPass getVariations failed: " + ex.getMessage());
+        }
+    }
+
+    /** Verifies a biller customer (electricity meter, TV smartcard, JAMB profile). */
+    public String merchantVerify(String serviceId, String billersCode, String type) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("serviceID", serviceId);
+        payload.put("billersCode", billersCode);
+        if (type != null && !type.isBlank()) {
+            payload.put("type", type);
+        }
+        try {
+            return restClient.post()
+                    .uri("/api/merchant-verify")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .header("api-key", apiKey)
+                    .header("secret-key", secretKey)
+                    .body(payload)
+                    .retrieve()
+                    .body(String.class);
+        } catch (Exception ex) {
+            throw FixPayException.badRequest("VTPass merchantVerify failed: " + ex.getMessage());
+        }
+    }
+
     public VtpassPurchaseResult requery(String requestId) {
         if (apiKey == null || apiKey.isBlank() || secretKey == null || secretKey.isBlank()) {
             return new VtpassPurchaseResult(

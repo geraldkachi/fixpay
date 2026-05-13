@@ -1,13 +1,18 @@
 package ng.fixpay.core.payment;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import ng.fixpay.core.events.DomainEventPublisher;
+import ng.fixpay.core.ledger.LedgerService;
+import ng.fixpay.core.ledger.LedgerService.DebitResult;
 import ng.fixpay.core.mandate.MandateService;
 import ng.fixpay.core.payment.domain.PaymentJournalEntry;
 import ng.fixpay.core.payment.domain.PaymentJournalEntryRepository;
 import ng.fixpay.core.payment.domain.VtpassPayment;
 import ng.fixpay.core.payment.domain.VtpassPaymentRepository;
+import ng.fixpay.core.payment.dto.BillPaymentRequest;
+import ng.fixpay.core.payment.dto.BillPaymentResponse;
 import ng.fixpay.core.payment.dto.InitializeVtpassPaymentRequest;
 import ng.fixpay.core.payment.dto.InitializeVtpassPaymentResponse;
 import ng.fixpay.core.payment.dto.PaymentJournalEntryResponse;
@@ -18,8 +23,6 @@ import ng.fixpay.core.payment.provider.VtpassClient;
 import ng.fixpay.core.payment.provider.VtpassPurchaseResult;
 import ng.fixpay.core.user.domain.AppUser;
 import ng.fixpay.core.user.domain.UserRepository;
-import ng.fixpay.core.wallet.domain.Wallet;
-import ng.fixpay.core.wallet.domain.WalletRepository;
 import ng.fixpay.shared.exception.FixPayException;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
@@ -30,8 +33,10 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -44,7 +49,7 @@ public class VtpassPaymentService {
     private final UserRepository userRepository;
     private final VtpassPaymentRepository paymentRepository;
     private final PaymentJournalEntryRepository paymentJournalRepository;
-    private final WalletRepository walletRepository;
+    private final LedgerService ledgerService;
     private final VtpassClient vtpassClient;
     private final ObjectMapper objectMapper;
     private final MandateService mandateService;
@@ -55,17 +60,17 @@ public class VtpassPaymentService {
             UserRepository userRepository,
             VtpassPaymentRepository paymentRepository,
             PaymentJournalEntryRepository paymentJournalRepository,
-            WalletRepository walletRepository,
+            LedgerService ledgerService,
             VtpassClient vtpassClient,
             ObjectMapper objectMapper,
             MandateService mandateService,
-                DomainEventPublisher eventPublisher,
+            DomainEventPublisher eventPublisher,
             @Value("${fixpay.vtpass.webhook-secret:dev_vtpass_webhook_secret}") String webhookSecret
     ) {
         this.userRepository = userRepository;
         this.paymentRepository = paymentRepository;
         this.paymentJournalRepository = paymentJournalRepository;
-        this.walletRepository = walletRepository;
+        this.ledgerService = ledgerService;
         this.vtpassClient = vtpassClient;
         this.objectMapper = objectMapper;
         this.mandateService = mandateService;
@@ -187,44 +192,26 @@ public class VtpassPaymentService {
             payment.setLastExecuteIdempotencyKey(executeIdempotencyKey);
         }
 
-        journal(
-                payment,
-                "PAYMENT_EXECUTION_STARTED",
-                payment.getAmount(),
-                null,
-                null,
+        journal(payment, "PAYMENT_EXECUTION_STARTED", payment.getAmount(), null, null,
                 "Payment execution started",
-                toJson(Map.of("paymentMethod", payment.getPaymentMethod().name()))
-        );
-            publishPaymentEvent("payment.execution.started", payment);
+                toJson(Map.of("paymentMethod", payment.getPaymentMethod().name())));
+        publishPaymentEvent("payment.execution.started", payment);
 
-        Wallet wallet = null;
-        BigDecimal originalBalance = null;
-        BigDecimal originalLedger = null;
-
+        // ── Ledger debit (runs in REQUIRES_NEW — committed before VTpass call) ──
+        DebitResult debitResult = null;
         if (payment.getPaymentMethod() == VtpassPaymentMethod.WALLET) {
-            wallet = walletRepository.findByUserIdAndCurrency(user.getId(), "NGN")
-                    .orElseThrow(() -> FixPayException.notFound("Wallet"));
-
-            originalBalance = wallet.getBalance();
-            originalLedger = wallet.getLedgerBalance();
-            if (wallet.getBalance().compareTo(payment.getAmount()) < 0) {
-                throw FixPayException.badRequest("Insufficient wallet balance");
-            }
-
-            wallet.setBalance(wallet.getBalance().subtract(payment.getAmount()));
-            wallet.setLedgerBalance(wallet.getLedgerBalance().subtract(payment.getAmount()));
-                journal(
-                    payment,
-                    "WALLET_DEBITED",
+            debitResult = ledgerService.debit(
+                    user.getId(),
                     payment.getAmount(),
-                    originalBalance,
-                    wallet.getBalance(),
-                    "Wallet debited for VTpass payment",
-                    null
-                );
+                    payment.getPaymentReference(),
+                    "Wallet debit for VTpass payment: " + payment.getServiceId()
+            );
+            journal(payment, "WALLET_DEBITED", payment.getAmount(),
+                    debitResult.balanceBefore(), debitResult.balanceAfter(),
+                    "Wallet debited via LedgerService", null);
         }
 
+        // ── VTpass call ──────────────────────────────────────────────────────
         String requestId = generateRequestId();
         VtpassPurchaseResult result = vtpassClient.purchase(
                 requestId,
@@ -236,53 +223,27 @@ public class VtpassPaymentService {
 
         if (result.successful()) {
             payment.markCompleted(result.providerStatus(), result.providerCode(), result.providerMessage(), result.requestId());
-            journal(
-                    payment,
-                    "PROVIDER_COMPLETED",
-                    payment.getAmount(),
-                    null,
-                    null,
-                    "Provider completed payment",
-                    result.rawResponse()
-            );
+            journal(payment, "PROVIDER_COMPLETED", payment.getAmount(), null, null,
+                    "Provider completed payment", result.rawResponse());
             publishPaymentEvent("payment.completed", payment);
         } else if (result.pending()) {
             payment.markProcessing(result.providerStatus(), result.providerCode(), result.providerMessage(), result.requestId());
-            journal(
-                    payment,
-                    "PROVIDER_PENDING",
-                    payment.getAmount(),
-                    null,
-                    null,
-                    "Provider accepted payment and marked it pending",
-                    result.rawResponse()
-            );
-                    publishPaymentEvent("payment.pending", payment);
+            journal(payment, "PROVIDER_PENDING", payment.getAmount(), null, null,
+                    "Provider accepted payment and marked it pending", result.rawResponse());
+            publishPaymentEvent("payment.pending", payment);
         } else {
-            if (wallet != null && originalBalance != null && originalLedger != null) {
-                wallet.setBalance(originalBalance);
-                wallet.setLedgerBalance(originalLedger);
-                journal(
-                        payment,
-                        "WALLET_REVERSED",
-                        payment.getAmount(),
-                        originalBalance.subtract(payment.getAmount()),
-                        originalBalance,
-                        "Wallet reversal after provider failure",
-                        null
-                );
+            // ── Provider failed — reverse the debit in a new transaction ──────
+            if (debitResult != null) {
+                ledgerService.reverse(debitResult, payment.getPaymentReference(),
+                        "Provider failure: " + result.providerMessage());
+                journal(payment, "WALLET_REVERSED", payment.getAmount(),
+                        debitResult.balanceAfter(), debitResult.balanceBefore(),
+                        "Wallet reversal after provider failure", null);
             }
             payment.markFailed(result.providerStatus(), result.providerCode(), result.providerMessage(), result.requestId());
-            journal(
-                    payment,
-                    "PROVIDER_FAILED",
-                    payment.getAmount(),
-                    null,
-                    null,
-                    "Provider failed payment",
-                    result.rawResponse()
-            );
-                    publishPaymentEvent("payment.failed", payment);
+            journal(payment, "PROVIDER_FAILED", payment.getAmount(), null, null,
+                    "Provider failed payment", result.rawResponse());
+            publishPaymentEvent("payment.failed", payment);
         }
 
         return toStatusResponse(payment);
@@ -587,4 +548,174 @@ public class VtpassPaymentService {
             String ussdCode,
             String checkoutUrl
     ) {}
+
+    // ─── Bill Payment Facade (simplified single-step API) ──────────────────
+
+    /**
+     * Initializes, authorizes, and executes a wallet-funded VTpass payment in a
+     * single transaction. Intended for the simplified bill payment API
+     * ({@code POST /api/payments/airtime}, {@code /data}, {@code /electricity}, etc.)
+     */
+    @Transactional
+    public BillPaymentResponse payImmediately(Jwt jwt, BillPaymentRequest request) {
+        UUID keycloakId = UUID.fromString(jwt.getSubject());
+        AppUser user = userRepository.findByKeycloakId(keycloakId)
+                .orElseThrow(() -> FixPayException.notFound("User"));
+
+        String billerRef = request.billersCode() != null && !request.billersCode().isBlank()
+                ? request.billersCode()
+                : request.phone();
+
+        String paymentReference = "FP-VTP-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        VtpassPayment payment = new VtpassPayment(
+                user.getId(),
+                user.getTenantId(),
+                paymentReference,
+                request.serviceId(),
+                billerRef,
+                request.amount(),
+                VtpassPaymentMethod.WALLET,
+                null,
+                null
+        );
+        payment.markAuthorized("ready", null,
+                toJson(Map.of("action", "debit_wallet_and_purchase",
+                        "variationCode", request.variationCode() != null ? request.variationCode() : "")));
+        paymentRepository.save(payment);
+        journal(payment, "PAYMENT_INITIALIZED", payment.getAmount(), null, null,
+                "Immediate bill payment initialized", null);
+
+        // ── Ledger debit (committed in its own transaction) ──────────────────
+        DebitResult debitResult = ledgerService.debit(
+                user.getId(),
+                payment.getAmount(),
+                paymentReference,
+                "Wallet debit for bill payment: " + request.serviceId()
+        );
+        journal(payment, "WALLET_DEBITED", payment.getAmount(),
+                debitResult.balanceBefore(), debitResult.balanceAfter(),
+                "Wallet debited via LedgerService", null);
+
+        // ── VTpass call ──────────────────────────────────────────────────────
+        String requestId = generateRequestId();
+        VtpassPurchaseResult result = vtpassClient.purchase(
+                requestId,
+                request.serviceId(),
+                request.amount(),
+                billerRef,
+                request.variationCode()
+        );
+
+        if (result.successful()) {
+            payment.markCompleted(result.providerStatus(), result.providerCode(), result.providerMessage(), result.requestId());
+            journal(payment, "PROVIDER_COMPLETED", payment.getAmount(), null, null,
+                    "Provider completed bill payment", result.rawResponse());
+            publishPaymentEvent("payment.completed", payment);
+        } else if (result.pending()) {
+            payment.markProcessing(result.providerStatus(), result.providerCode(), result.providerMessage(), result.requestId());
+            journal(payment, "PROVIDER_PENDING", payment.getAmount(), null, null,
+                    "Provider pending bill payment", result.rawResponse());
+            publishPaymentEvent("payment.pending", payment);
+        } else {
+            // ── Provider failed — reverse the debit ───────────────────────────
+            ledgerService.reverse(debitResult, paymentReference,
+                    "Provider failure: " + result.providerMessage());
+            journal(payment, "WALLET_REVERSED", payment.getAmount(),
+                    debitResult.balanceAfter(), debitResult.balanceBefore(),
+                    "Wallet reversal after provider failure", null);
+            payment.markFailed(result.providerStatus(), result.providerCode(), result.providerMessage(), result.requestId());
+            journal(payment, "PROVIDER_FAILED", payment.getAmount(), null, null,
+                    "Provider failed bill payment", result.rawResponse());
+            publishPaymentEvent("payment.failed", payment);
+            throw FixPayException.badRequest(
+                    result.providerMessage() != null ? result.providerMessage() : "Payment declined by provider");
+        }
+
+        return parseBillPaymentResponse(result.rawResponse(), result.requestId(), request.amount());
+    }
+
+    /** Fetches service variations from VTpass and normalises field names for the frontend. */
+    public String getServiceVariations(String serviceId) {
+        String raw = vtpassClient.getVariations(serviceId);
+        try {
+            JsonNode root = objectMapper.readTree(raw);
+            JsonNode varArray = root.path("content").path("variations");
+            List<Map<String, Object>> list = new ArrayList<>();
+            for (JsonNode v : varArray) {
+                Map<String, Object> item = new LinkedHashMap<>();
+                item.put("variationCode",   text(v, "variation_code"));
+                item.put("name",            text(v, "name"));
+                item.put("variationAmount", text(v, "variation_amount"));
+                item.put("fixedPrice",      text(v, "fixedPrice"));
+                list.add(item);
+            }
+            return objectMapper.writeValueAsString(Map.of("variations", list));
+        } catch (Exception ex) {
+            // Return raw if parsing fails
+            return raw;
+        }
+    }
+
+    /** Proxies a VTpass merchant-verify call and normalises the response. */
+    public Map<String, Object> verifyBiller(String serviceId, String billersCode, String type) {
+        String raw = vtpassClient.merchantVerify(serviceId, billersCode, type);
+        try {
+            JsonNode root = objectMapper.readTree(raw);
+            JsonNode content = root.path("content");
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("customerName",   firstNonNull(content, "Customer_Name", "name"));
+            result.put("status",         firstNonNull(content, "Status", "status"));
+            result.put("currentBouquet", firstNonNull(content, "Current_Bouquet", "Bouquet_Code"));
+            result.put("renewalAmount",  parseDoubleOrNull(firstNonNull(content, "Renewal_Amount", "renewal_amount")));
+            result.put("meterType",      firstNonNull(content, "Meter_Type", "meter_type"));
+            result.put("accountType",    firstNonNull(content, "Customer_Account_Type", "account_type"));
+            result.put("address",        firstNonNull(content, "Address", "address"));
+            result.put("meterNumber",    firstNonNull(content, "Meter_Number", "meter_number"));
+            return result;
+        } catch (Exception ex) {
+            throw FixPayException.badRequest("Biller verification failed: " + ex.getMessage());
+        }
+    }
+
+    private BillPaymentResponse parseBillPaymentResponse(String rawResponse, String requestId, BigDecimal amount) {
+        String token = null;
+        String units = null;
+        String pin   = null;
+        String purchasedCode = null;
+        try {
+            JsonNode root = objectMapper.readTree(rawResponse);
+            token         = text(root, "token");
+            units         = text(root, "units");
+            pin           = text(root, "Pin");
+            purchasedCode = text(root, "purchased_code");
+            if (token == null) token = text(root.path("content").path("transactions"), "token");
+        } catch (Exception ignored) { /* use null values */ }
+        return new BillPaymentResponse(
+                requestId,
+                Instant.now().toString(),
+                amount.toPlainString(),
+                token,
+                units,
+                pin,
+                purchasedCode
+        );
+    }
+
+    private String firstNonNull(JsonNode node, String... keys) {
+        for (String key : keys) {
+            String v = text(node, key);
+            if (v != null && !v.isBlank()) return v;
+        }
+        return null;
+    }
+
+    private Double parseDoubleOrNull(String val) {
+        if (val == null) return null;
+        try { return Double.parseDouble(val); } catch (NumberFormatException e) { return null; }
+    }
+
+    private String text(JsonNode node, String key) {
+        JsonNode value = node.get(key);
+        return value == null || value.isNull() ? null : value.asText();
+    }
 }

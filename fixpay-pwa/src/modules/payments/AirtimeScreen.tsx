@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { useForm, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { api } from '@/lib/api'
 import { queryClient } from '@/lib/query-client'
+import { paymentsService } from '@/lib/services/payments.service'
+import { authService } from '@/lib/services/auth.service'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
@@ -12,17 +13,17 @@ import { BottomSheet } from '@/components/ui/BottomSheet'
 import { PinPad } from '@/components/ui/PinPad'
 
 const NETWORKS = [
-  { id: 'mtn',     label: 'MTN',     color: '#FFCC00', text: '#000' },
-  { id: 'airtel',  label: 'Airtel',  color: '#EF3125', text: '#FFF' },
-  { id: 'glo',     label: 'Glo',     color: '#009900', text: '#FFF' },
-  { id: '9mobile', label: '9mobile', color: '#006600', text: '#FFF' },
+  { id: 'mtn',      label: 'MTN',     color: '#FFCC00', text: '#000' },
+  { id: 'airtel',   label: 'Airtel',  color: '#EF3125', text: '#FFF' },
+  { id: 'glo',      label: 'Glo',     color: '#009900', text: '#FFF' },
+  { id: 'etisalat', label: '9mobile', color: '#006600', text: '#FFF' },
 ]
 
 const AMOUNTS = [100, 200, 500, 1000, 2000, 5000]
 
 const schema = z.object({
-  phone:     z.string().regex(/^0[789]\d{9}$/, 'Enter a valid 11-digit number'),
-  amount:    z.coerce.number().min(50, 'Minimum ₦50').max(50000, 'Maximum ₦50,000'),
+  phone:     z.string().min(6, 'Enter a phone number'),
+  amount:    z.coerce.number().min(50, 'Minimum ₦50').max(200000, 'Maximum ₦200,000'),
   serviceId: z.string().min(1, 'Select a network'),
 })
 type FormData = z.infer<typeof schema>
@@ -40,6 +41,7 @@ export function AirtimeScreen() {
     defaultValues: { serviceId: 'mtn', phone: '', amount: 0 },
   })
   const selectedNet = watch('serviceId')
+  const isInternational = selectedNet === 'foreign-airtime'
 
   const onSubmit = (data: FormData) => { setPending(data); setPin(''); setPinError(''); setShowPin(true) }
 
@@ -48,14 +50,14 @@ export function AirtimeScreen() {
     if (val.length < 6 || !pending || submitting) return
     setSubmitting(true)
     try {
-      await api.post('/auth/pin/verify', { pin: val })
-      const res = await api.post<{ requestId: string; transaction_date: string }>('/payments/airtime', {
+      await authService.verifyPin(val)
+      const res = await paymentsService.airtime({
         serviceId: pending.serviceId, phone: pending.phone, amount: pending.amount,
       })
       queryClient.invalidateQueries({ queryKey: ['wallet'] })
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
       navigate('/payments/receipt', {
-        state: { type: 'airtime', network: pending.serviceId, phone: pending.phone, amount: pending.amount, requestId: res.data.requestId, date: res.data.transaction_date },
+        state: { type: 'airtime', network: pending.serviceId, phone: pending.phone, amount: pending.amount, requestId: res.requestId, date: res.transaction_date },
       })
     } catch {
       setPinError('Incorrect PIN or payment failed. Try again.')
@@ -71,7 +73,7 @@ export function AirtimeScreen() {
 
         {/* Network selector */}
         <p className="text-[13px] font-semibold text-gray-500 uppercase tracking-wide mb-2">Select Network</p>
-        <div className="grid grid-cols-4 gap-2 mb-5">
+        <div className="grid grid-cols-4 gap-2 mb-3">
           {NETWORKS.map(n => (
             <button key={n.id} onClick={() => setValue('serviceId', n.id)}
               className="flex flex-col items-center gap-1.5 py-3 rounded-[14px] border-2 transition-all pressable"
@@ -80,15 +82,24 @@ export function AirtimeScreen() {
             </button>
           ))}
         </div>
+        <button type="button" onClick={() => setValue('serviceId', 'foreign-airtime')}
+          className="w-full py-2.5 rounded-[14px] border-2 text-[13px] font-semibold mb-5 pressable transition-all"
+          style={{ borderColor: selectedNet === 'foreign-airtime' ? 'var(--brand-primary)' : 'transparent', background: '#2C2C2E', color: '#FFF' }}>
+          🌍 International Airtime
+        </button>
         {errors.serviceId && <p className="text-ios-red text-[13px] mb-3">{errors.serviceId.message}</p>}
 
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
-          <Input label="Phone Number" type="tel" inputMode="tel" placeholder="08012345678"
+          <Input
+            label={isInternational ? 'International Phone Number' : 'Phone Number'}
+            type="tel" inputMode="tel"
+            placeholder={isInternational ? '+1 2125551234' : '08012345678'}
             error={errors.phone?.message} {...register('phone')} />
 
           {/* Quick amounts */}
           <div>
             <p className="text-[13px] font-semibold text-gray-500 uppercase tracking-wide mb-2">Amount</p>
+            {!isInternational && (
             <div className="grid grid-cols-3 gap-2 mb-3">
               {AMOUNTS.map(a => (
                 <button key={a} type="button" onClick={() => setValue('amount', a)}
@@ -97,6 +108,7 @@ export function AirtimeScreen() {
                 </button>
               ))}
             </div>
+            )}
             <Input label="" type="number" inputMode="numeric" placeholder="Or enter amount" prefix="₦"
               error={errors.amount?.message} {...register('amount')} />
           </div>

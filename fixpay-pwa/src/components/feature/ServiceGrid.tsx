@@ -1,14 +1,14 @@
 import { useNavigate } from 'react-router-dom'
-import { DevicePhoneMobileIcon, SignalIcon, TvIcon, BoltIcon, AcademicCapIcon, EllipsisHorizontalIcon } from '@heroicons/react/24/outline'
+import { DevicePhoneMobileIcon, SignalIcon, TvIcon, BoltIcon, AcademicCapIcon, ShieldCheckIcon } from '@heroicons/react/24/outline'
 import { cn } from '@/lib/utils'
 
 const services = [
-  { id: 'airtime',     label: 'Airtime',      Icon: DevicePhoneMobileIcon, path: '/payments/airtime', color: 'text-orange-500 bg-orange-50' },
-  { id: 'data',        label: 'Data',         Icon: SignalIcon,            path: '/payments/data',    color: 'text-blue-500 bg-blue-50' },
-  { id: 'tv',          label: 'TV / Cable',   Icon: TvIcon,               path: '/payments/tv',      color: 'text-purple-500 bg-purple-50' },
+  { id: 'airtime',     label: 'Airtime',      Icon: DevicePhoneMobileIcon, path: '/payments/airtime',    color: 'text-orange-500 bg-orange-50' },
+  { id: 'data',        label: 'Data',         Icon: SignalIcon,            path: '/payments/data',        color: 'text-blue-500 bg-blue-50' },
+  { id: 'tv',          label: 'TV / Cable',   Icon: TvIcon,               path: '/payments/tv',          color: 'text-purple-500 bg-purple-50' },
   { id: 'electricity', label: 'Electricity',  Icon: BoltIcon,             path: '/payments/electricity', color: 'text-yellow-500 bg-yellow-50' },
-  { id: 'education',   label: 'Education',    Icon: AcademicCapIcon,      path: '/payments/education', color: 'text-teal-500 bg-teal-50' },
-  { id: 'more',        label: 'More',         Icon: EllipsisHorizontalIcon, path: '/payments',       color: 'text-gray-500 bg-gray-100' },
+  { id: 'education',   label: 'Education',    Icon: AcademicCapIcon,      path: '/payments/education',   color: 'text-teal-500 bg-teal-50' },
+  { id: 'insurance',   label: 'Insurance',    Icon: ShieldCheckIcon,      path: '/payments/insurance',   color: 'text-green-600 bg-green-50' },
 ]
 
 interface ServiceGridProps {

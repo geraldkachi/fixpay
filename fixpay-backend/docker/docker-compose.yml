@@ -9,7 +9,7 @@ services:
       POSTGRES_USER:     fixpay
       POSTGRES_PASSWORD: fixpay_dev_secret
     ports:
-      - "5433:5432"
+      - "5434:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/01_init.sql

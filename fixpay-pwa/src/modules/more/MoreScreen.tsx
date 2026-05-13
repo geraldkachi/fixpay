@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { ChevronRightIcon, UserCircleIcon, BanknotesIcon, ExclamationTriangleIcon, ArrowRightStartOnRectangleIcon, ShieldCheckIcon } from '@heroicons/react/24/outline'
 import { useAuthStore } from '@/store/auth.store'
 import { useTenantStore } from '@/store/tenant.store'
+import { serverLogout } from '@/lib/api'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Badge, statusBadge } from '@/components/ui/Badge'
 import { cn } from '@/lib/utils'
@@ -26,7 +27,7 @@ function MenuItem({ icon: Icon, label, sub, onClick, variant = 'default', last }
 
 export function MoreScreen() {
   const navigate = useNavigate()
-  const { user, logout } = useAuthStore()
+  const { user } = useAuthStore()
   const { config } = useTenantStore()
   const { label, variant } = statusBadge(user?.kycStatus ?? 'pending')
 
@@ -53,13 +54,13 @@ export function MoreScreen() {
       {/* Menu items */}
       <div className="mx-4 mt-4 rounded-[20px] overflow-hidden animate-slide-up stagger">
         <MenuItem icon={UserCircleIcon}      label="Profile"          sub="Manage your account"            onClick={() => navigate('/more/profile')} />
-        <MenuItem icon={ShieldCheckIcon}     label="KYC & Security"  sub="Identity & PIN settings"         onClick={() => navigate('/more/profile')} />
+        <MenuItem icon={ShieldCheckIcon}     label="KYC & Security"  sub="Identity & PIN settings"         onClick={() => navigate('/more/security')} />
         <MenuItem icon={BanknotesIcon}       label="Direct Debit"    sub="Manage NIBSS mandates"            onClick={() => navigate('/more/mandates')} />
         <MenuItem icon={ExclamationTriangleIcon} label="Disputes"   sub="Raise & track disputes"           onClick={() => navigate('/more/disputes')} last />
       </div>
 
       <div className="mx-4 mt-4 rounded-[20px] overflow-hidden animate-slide-up">
-        <MenuItem icon={ArrowRightStartOnRectangleIcon} label="Sign Out" variant="danger" onClick={() => { logout(); navigate('/welcome', { replace: true }) }} last />
+        <MenuItem icon={ArrowRightStartOnRectangleIcon} label="Sign Out" variant="danger" onClick={() => { serverLogout().then(() => navigate('/welcome', { replace: true })) }} last />
       </div>
 
       <p className="text-center text-[11px] text-gray-300 mt-6">{config.appName} v1.0.0-poc</p>

@@ -13,6 +13,7 @@ export function SplashScreen() {
 
   useEffect(() => {
     sleep(2800).then(() => {
+      sessionStorage.setItem('splash_shown', '1')
       if (isAuthenticated && kycCompleted && pinCreated) navigate('/home', { replace: true })
       else if (isAuthenticated) navigate('/kyc', { replace: true })
       else navigate('/welcome', { replace: true })

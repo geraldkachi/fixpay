@@ -1,8 +1,8 @@
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { DocumentDuplicateIcon } from '@heroicons/react/24/outline'
-import { api } from '@/lib/api'
 import type { Wallet } from '@/types'
+import { walletService } from '@/lib/services/wallet.service'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { vibrate } from '@/lib/utils'
@@ -11,7 +11,7 @@ export function FundWalletScreen() {
   const navigate = useNavigate()
   const { data: wallet } = useQuery<Wallet>({
     queryKey: ['wallet'],
-    queryFn: () => api.get<Wallet>('/wallet/me').then(r => r.data),
+    queryFn: () => walletService.getBalance(),
   })
 
   const acct = wallet?.virtualAccount?.accountNumber ?? '—'

@@ -1,14 +1,20 @@
 import axios from 'axios'
 import { useAuthStore } from '@/store/auth.store'
+import { purgeDbKey } from '@/lib/crypto'
+import { clearTransactions } from '@/lib/db'
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? '/api',
   timeout: 30_000,
+  // Always send cookies so the httpOnly refresh_token cookie is included
   withCredentials: true,
   headers: { 'Content-Type': 'application/json' },
 })
 
 api.interceptors.request.use((config) => {
+  // In mock/dev mode the token lives in memory (MSW can't set httpOnly cookies).
+  // In production the httpOnly cookie is sent automatically by the browser;
+  // the Authorization header is kept as a fallback for clients that prefer it.
   const token = useAuthStore.getState().token
   if (token) config.headers.Authorization = `Bearer ${token}`
   const fp = localStorage.getItem('device_fp')
@@ -32,14 +38,17 @@ api.interceptors.response.use(
       }
       refreshing = true
       try {
+        // withCredentials sends the httpOnly refresh_token cookie automatically.
+        // The server returns a new accessToken in the body AND rotates the cookie.
         const { data } = await axios.post('/api/auth/refresh', {}, { withCredentials: true })
         const t = data.accessToken as string
+        // Store the new token in memory only — NOT in localStorage
         useAuthStore.getState().setToken(t)
         queue.forEach(cb => cb(t)); queue = []
         orig.headers.Authorization = `Bearer ${t}`
         return api(orig)
       } catch {
-        useAuthStore.getState().logout()
+        await serverLogout()
         window.location.href = '/auth/login'
       } finally {
         refreshing = false
@@ -48,6 +57,24 @@ api.interceptors.response.use(
     return Promise.reject(err)
   }
 )
+
+/**
+ * Full logout:
+ * 1. Tell the server to clear the httpOnly refresh_token cookie.
+ * 2. Wipe the AES encryption key so all cached IndexedDB data becomes unreadable.
+ * 3. Drop the IndexedDB transaction table.
+ * 4. Clear Zustand auth state.
+ */
+export async function serverLogout(): Promise<void> {
+  try {
+    await axios.post('/api/auth/logout', {}, { withCredentials: true })
+  } catch {
+    // best-effort — proceed with local cleanup regardless
+  }
+  purgeDbKey()
+  await clearTransactions()
+  useAuthStore.getState().logout()
+}
 
 export { api }
 export default api

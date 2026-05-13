@@ -9,9 +9,29 @@ export function addBalance(kobo: number) { balanceKobo += kobo }
 export function getBalance() { return balanceKobo }
 
 export const walletHandlers = [
+  // Legacy path — kept for backward compat (FundWalletScreen still uses it)
   http.get('/api/wallet/me', async () => {
     await delay(400)
     return HttpResponse.json({ ...mockWallet, balanceKobo })
+  }),
+
+  // Real backend path — returns ApiResponse<WalletBalanceResponse> shape
+  http.get('/api/wallet/balance', async () => {
+    await delay(400)
+    return HttpResponse.json({
+      success: true,
+      message: null,
+      errorCode: null,
+      timestamp: new Date().toISOString(),
+      data: {
+        walletId: mockWallet.id,
+        currency: mockWallet.currency,
+        availableBalance: balanceKobo / 100,
+        ledgerBalance: balanceKobo / 100,
+        status: mockWallet.status,
+        virtualAccount: mockWallet.virtualAccount,
+      },
+    })
   }),
 
   http.get('/api/wallet/transactions', async ({ request }) => {

@@ -137,6 +137,24 @@ export const paymentHandlers = [
     })
   }),
 
+  http.post('/api/payments/insurance', async ({ request }) => {
+    await delay(1400)
+    const body = await request.json() as Record<string, unknown>
+    const vars = variations[body.serviceId as string] ?? []
+    const chosen = vars.find(v => v.variationCode === body.variationCode)
+    const amount = parseFloat(chosen?.variationAmount ?? '0') * 100
+    deductBalance(amount)
+    return HttpResponse.json({
+      code: '000',
+      content: { transactions: { status: 'delivered', product_name: chosen?.name, unique_element: body.billersCode } },
+      response_description: 'TRANSACTION SUCCESSFUL',
+      requestId: generateRequestId(),
+      amount: chosen?.variationAmount,
+      transaction_date: new Date().toISOString(),
+      purchased_code: 'POLICY-' + Math.random().toString(36).substring(2, 12).toUpperCase(),
+    })
+  }),
+
   http.post('/api/payments/requery/:requestId', async () => {
     await delay(600)
     return HttpResponse.json({ code: '000', content: { transactions: { status: 'delivered' } } })

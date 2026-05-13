@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { EyeIcon, EyeSlashIcon, PlusIcon, ArrowUpRightIcon } from '@heroicons/react/24/outline'
 import { useQuery } from '@tanstack/react-query'
 import { formatCurrency, maskAccount } from '@/lib/utils'
-import { api } from '@/lib/api'
 import type { Wallet } from '@/types'
+import { walletService } from '@/lib/services/wallet.service'
 import { Button } from '@/components/ui/Button'
 import { Spinner } from '@/components/ui/Spinner'
 
@@ -13,7 +13,7 @@ export function BalanceCard() {
   const [masked, setMasked] = useState(false)
   const { data: wallet, isLoading } = useQuery<Wallet>({
     queryKey: ['wallet'],
-    queryFn: () => api.get<Wallet>('/wallet/me').then(r => r.data),
+    queryFn: () => walletService.getBalance(),
     staleTime: 30_000,
   })
 

@@ -4,9 +4,10 @@ import { useForm, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { CheckCircleIcon } from '@heroicons/react/24/solid'
-import { api } from '@/lib/api'
 import { queryClient } from '@/lib/query-client'
 import type { BillerVerify } from '@/types'
+import { paymentsService } from '@/lib/services/payments.service'
+import { authService } from '@/lib/services/auth.service'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
@@ -14,12 +15,18 @@ import { BottomSheet } from '@/components/ui/BottomSheet'
 import { PinPad } from '@/components/ui/PinPad'
 
 const PROVIDERS = [
-  { id: 'ikeja-electric',    label: 'Ikeja Electric',    short: 'IKEDC' },
-  { id: 'eko-electric',      label: 'Eko Electricity',   short: 'EKEDC' },
-  { id: 'abuja-electric',    label: 'Abuja Electric',    short: 'AEDC' },
-  { id: 'kano-electric',     label: 'Kano Electricity',  short: 'KEDCO' },
-  { id: 'enugu-electric',    label: 'Enugu Electric',    short: 'EEDC' },
-  { id: 'ibadan-electric',   label: 'Ibadan Electric',   short: 'IBEDC' },
+  { id: 'ikeja-electric',       label: 'Ikeja Electric',        short: 'IKEDC' },
+  { id: 'eko-electric',         label: 'Eko Electricity',       short: 'EKEDC' },
+  { id: 'abuja-electric',       label: 'Abuja Electric',        short: 'AEDC' },
+  { id: 'kano-electric',        label: 'Kano Electricity',      short: 'KEDCO' },
+  { id: 'enugu-electric',       label: 'Enugu Electric',        short: 'EEDC' },
+  { id: 'ibadan-electric',      label: 'Ibadan Electric',       short: 'IBEDC' },
+  { id: 'phed',                 label: 'Port Harcourt Elec.',   short: 'PHED' },
+  { id: 'benin-electric',       label: 'Benin Electricity',     short: 'BEDC' },
+  { id: 'kaduna-electric',      label: 'Kaduna Electric',       short: 'KAEDCO' },
+  { id: 'jos-electric',         label: 'Jos Electricity',       short: 'JED' },
+  { id: 'aba-electric',         label: 'Aba Electricity',       short: 'ABA' },
+  { id: 'yola-electric',        label: 'Yola Electricity',      short: 'YEDC' },
 ]
 
 const schema = z.object({
@@ -56,8 +63,8 @@ export function ElectricityScreen() {
     if (!meter || meter.length < 10) { setVerifyError('Enter meter number first'); return }
     setVerifying(true); setVerifyError(''); setVerifyResult(null)
     try {
-      const res = await api.post<BillerVerify>('/payments/verify', { serviceId, billersCode: meter, type })
-      setVerifyResult(res.data)
+      const res = await paymentsService.verify({ serviceId, billersCode: meter, type })
+      setVerifyResult(res)
     } catch {
       setVerifyError('Meter not found. (Demo prepaid: 1111111111111, postpaid: 1010101010101)')
     } finally { setVerifying(false) }
@@ -70,16 +77,16 @@ export function ElectricityScreen() {
     if (val.length < 6 || !pending || submitting) return
     setSubmitting(true)
     try {
-      await api.post('/auth/pin/verify', { pin: val })
-      const res = await api.post<{ requestId: string; transaction_date: string; token?: string; units?: string }>('/payments/electricity', pending)
+      await authService.verifyPin(val)
+      const res = await paymentsService.electricity(pending)
       queryClient.invalidateQueries({ queryKey: ['wallet'] })
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
       navigate('/payments/receipt', {
         state: {
           type: 'electricity', provider: serviceId, customerName: verifyResult?.customerName,
           meter: pending.billersCode, meterType: variationCode, amount: pending.amount,
-          token: res.data.token, units: res.data.units,
-          requestId: res.data.requestId, date: res.data.transaction_date,
+          token: res.token, units: res.units,
+          requestId: res.requestId, date: res.transaction_date,
         },
       })
     } catch {

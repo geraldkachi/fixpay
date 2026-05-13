@@ -1,21 +1,24 @@
+import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { api } from '@/lib/api'
 import { formatCurrency } from '@/lib/utils'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { TransactionItem } from '@/components/feature/TransactionItem'
 import { Spinner } from '@/components/ui/Spinner'
-import type { Wallet, Transaction } from '@/types'
+import type { Wallet } from '@/types'
+import { walletService } from '@/lib/services/wallet.service'
 
 export function WalletScreen() {
+  const navigate = useNavigate()
   const { data: wallet } = useQuery<Wallet>({
     queryKey: ['wallet'],
-    queryFn: () => api.get<Wallet>('/wallet/me').then(r => r.data),
+    queryFn: () => walletService.getBalance(),
     staleTime: 30_000,
   })
 
   const { data: txPage, isLoading } = useQuery({
     queryKey: ['transactions', { page: 0, size: 50 }],
-    queryFn: () => api.get<{ content: Transaction[] }>('/wallet/transactions?page=0&size=50').then(r => r.data),
+    queryFn: () => walletService.getTransactions(0, 50),
+    staleTime: 30_000,
   })
 
   const txns = txPage?.content ?? []
@@ -46,7 +49,7 @@ export function WalletScreen() {
           <div className="bg-white rounded-[16px] p-8 text-center text-gray-400 text-[14px]">No transactions yet</div>
         ) : (
           <div className="bg-white rounded-[16px] overflow-hidden">
-            {txns.map(tx => <TransactionItem key={tx.id} tx={tx} />)}
+            {txns.map(tx => <TransactionItem key={tx.id} tx={tx} onClick={() => navigate(`/wallet/transactions/${tx.id}`)} />)}
           </div>
         )}
       </section>

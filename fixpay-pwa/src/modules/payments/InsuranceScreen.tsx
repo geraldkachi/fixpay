@@ -15,25 +15,21 @@ import { BottomSheet } from '@/components/ui/BottomSheet'
 import { PinPad } from '@/components/ui/PinPad'
 import { Spinner } from '@/components/ui/Spinner'
 
-const NETWORKS = [
-  { id: 'mtn-data',          label: 'MTN',        color: '#FFCC00', text: '#000' },
-  { id: 'airtel-data',       label: 'Airtel',     color: '#EF3125', text: '#FFF' },
-  { id: 'glo-data',          label: 'Glo',        color: '#009900', text: '#FFF' },
-  { id: 'etisalat-data',     label: '9mobile',    color: '#006600', text: '#FFF' },
-  { id: 'smile-direct',      label: 'Smile',      color: '#FF6B00', text: '#FFF' },
-  { id: 'spectranet',        label: 'Spectranet', color: '#003087', text: '#FFF' },
-  { id: 'glo-sme-data',      label: 'Glo SME',    color: '#005500', text: '#FFF' },
-  { id: 'etisalat-sme-data', label: '9m SME',     color: '#004400', text: '#FFF' },
+const PRODUCTS = [
+  { id: 'ui-insure',                   label: 'Third Party Motor', description: 'TP Motor Insurance',   billerLabel: 'Vehicle Plate Number', billerPlaceholder: 'ABC-123-XY' },
+  { id: 'personal-accident-insurance', label: 'Personal Accident', description: 'PA Insurance',         billerLabel: 'Phone Number',         billerPlaceholder: '08012345678' },
+  { id: 'home-cover-insurance',        label: 'Home Cover',        description: 'Home Cover Insurance', billerLabel: 'Phone Number',         billerPlaceholder: '08012345678' },
 ]
 
 const schema = z.object({
-  serviceId:     z.string().min(1, 'Select a network'),
-  billersCode:   z.string().min(5, 'Enter a valid number or account ID'),
-  variationCode: z.string().min(1, 'Select a bundle'),
+  serviceId:     z.string().min(1),
+  billersCode:   z.string().min(3, 'Enter required details'),
+  variationCode: z.string().min(1, 'Select a plan'),
+  phone:         z.string().regex(/^0[789]\d{9}$/, 'Enter a valid phone number'),
 })
 type FormData = z.infer<typeof schema>
 
-export function DataScreen() {
+export function InsuranceScreen() {
   const navigate = useNavigate()
   const [showPin, setShowPin] = useState(false)
   const [pin, setPin] = useState('')
@@ -43,7 +39,7 @@ export function DataScreen() {
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { serviceId: 'mtn-data', billersCode: '', variationCode: '' },
+    defaultValues: { serviceId: 'ui-insure', billersCode: '', variationCode: '', phone: '' },
   })
   const serviceId = watch('serviceId')
   const variationCode = watch('variationCode')
@@ -62,14 +58,22 @@ export function DataScreen() {
     setSubmitting(true)
     try {
       await authService.verifyPin(val)
-      const res = await paymentsService.data(pending)
+      const res = await paymentsService.insurance({ ...pending, variationCode: pending.variationCode })
       queryClient.invalidateQueries({ queryKey: ['wallet'] })
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
       navigate('/payments/receipt', {
-        state: { type: 'data', bundle: chosen?.name, phone: pending.billersCode, amount: parseFloat(chosen?.variationAmount ?? '0'), requestId: res.requestId, date: res.transaction_date },
+        state: {
+          type: 'insurance',
+          serviceId: pending.serviceId,
+          exam: chosen?.name,
+          amount: parseFloat(chosen?.variationAmount ?? '0'),
+          requestId: res.requestId,
+          date: res.transaction_date,
+          purchased_code: res.purchased_code,
+        },
       })
     } catch {
-      setPinError('Incorrect PIN or purchase failed. Try again.')
+      setPinError('Incorrect PIN or payment failed. Try again.')
       setPin('')
       setSubmitting(false)
     }
@@ -77,39 +81,48 @@ export function DataScreen() {
 
   return (
     <div className="flex flex-col h-[100dvh] bg-[#F2F2F7]">
-      <PageHeader title="Buy Data" onBack="default" />
+      <PageHeader title="Insurance" onBack="default" />
       <div className="flex-1 overflow-y-auto no-scrollbar px-4 pt-4 pb-8 animate-slide-up">
 
-        {/* Network selector */}
-        <p className="text-[13px] font-semibold text-gray-500 uppercase tracking-wide mb-2">Select Network</p>
-        <div className="grid grid-cols-4 gap-2 mb-5">
-          {NETWORKS.map(n => (
-            <button key={n.id} onClick={() => { setValue('serviceId', n.id); setValue('variationCode', '') }}
-              className="flex flex-col items-center py-3 rounded-[14px] border-2 transition-all pressable"
-              style={{ borderColor: serviceId === n.id ? 'var(--brand-primary)' : 'transparent', background: n.color }}>
-              <span className="text-[12px] font-bold" style={{ color: n.text }}>{n.label}</span>
+        {/* Product selector */}
+        <p className="text-[13px] font-semibold text-gray-500 uppercase tracking-wide mb-2">Insurance Type</p>
+        <div className="flex flex-col gap-2 mb-5">
+          {PRODUCTS.map(p => (
+            <button key={p.id} onClick={() => { setValue('serviceId', p.id); setValue('variationCode', '') }}
+              className="flex items-center gap-3 bg-white px-4 py-3 rounded-[14px] border-2 transition-all pressable text-left"
+              style={{ borderColor: serviceId === p.id ? 'var(--brand-primary)' : 'transparent' }}>
+              <div className="flex flex-col">
+                <span className="text-[15px] font-semibold text-gray-800">{p.label}</span>
+                <span className="text-[12px] text-gray-500">{p.description}</span>
+              </div>
             </button>
           ))}
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
           <Input
-            label={serviceId === 'spectranet' ? 'Subscriber ID' : serviceId === 'smile-direct' ? 'Smile Account No.' : 'Phone Number'}
-            type="tel" inputMode="tel"
-            placeholder={serviceId === 'spectranet' ? 'e.g. 0811111111' : serviceId === 'smile-direct' ? 'e.g. 0712345678' : '08012345678'}
+            label={PRODUCTS.find(p => p.id === serviceId)?.billerLabel ?? 'Reference'}
+            type="text"
+            placeholder={PRODUCTS.find(p => p.id === serviceId)?.billerPlaceholder ?? ''}
             error={errors.billersCode?.message} {...register('billersCode')} />
+          <Input label="Phone Number" type="tel" inputMode="tel" placeholder="08012345678"
+            error={errors.phone?.message} {...register('phone')} />
 
-          {/* Bundle list */}
+          {/* Plan selector */}
           <div>
-            <p className="text-[13px] font-semibold text-gray-500 uppercase tracking-wide mb-2">Select Bundle</p>
-            {varsLoading ? <div className="flex justify-center py-4"><Spinner /></div> : (
+            <p className="text-[13px] font-semibold text-gray-500 uppercase tracking-wide mb-2">Select Plan</p>
+            {varsLoading ? (
+              <div className="flex justify-center py-4"><Spinner /></div>
+            ) : (
               <div className="flex flex-col gap-2">
                 {variations.map(v => (
                   <button key={v.variationCode} type="button" onClick={() => setValue('variationCode', v.variationCode)}
                     className="flex items-center justify-between bg-white rounded-[14px] px-4 py-3 border-2 transition-all pressable"
                     style={{ borderColor: variationCode === v.variationCode ? 'var(--brand-primary)' : 'transparent' }}>
                     <span className="text-[15px] font-medium text-gray-800">{v.name}</span>
-                    <span className="text-[15px] font-bold" style={{ color: 'var(--brand-primary)' }}>₦{parseFloat(v.variationAmount).toLocaleString()}</span>
+                    <span className="text-[15px] font-bold" style={{ color: 'var(--brand-primary)' }}>
+                      ₦{parseFloat(v.variationAmount).toLocaleString()}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -117,7 +130,7 @@ export function DataScreen() {
             {errors.variationCode && <p className="text-ios-red text-[13px] mt-1">{errors.variationCode.message}</p>}
           </div>
 
-          <Button type="submit" fullWidth className="mt-2" disabled={!chosen}>
+          <Button type="submit" fullWidth disabled={!chosen}>
             {chosen ? `Pay ₦${parseFloat(chosen.variationAmount).toLocaleString()}` : 'Continue'}
           </Button>
         </form>

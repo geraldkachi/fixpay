@@ -6,7 +6,7 @@ spring:
     name: fixpay-core
 
   datasource:
-    url:      jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5433}/${DB_NAME:fixpay}
+    url:      jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5434}/${DB_NAME:fixpay}
     username: ${DB_USER:fixpay}
     password: ${DB_PASSWORD:fixpay_dev_secret}
     driver-class-name: org.postgresql.Driver
@@ -75,8 +75,8 @@ fixpay:
       api-key: ${VERIFICATION_CAC_API_KEY:}
   vtpass:
     base-url: ${VTPASS_BASE_URL:https://sandbox.vtpass.com}
-    api-key: ${VTPASS_API_KEY:}
-    secret-key: ${VTPASS_SECRET_KEY:}
+    api-key: ${VTPASS_API_KEY:7a1593b111e836697ac1a122367c5ca2}
+    secret-key: ${VTPASS_SECRET_KEY:SK_650580adb1b7a0da2e430bd4316c5ba9224a9dcb66c}
     webhook-secret: ${VTPASS_WEBHOOK_SECRET:dev_vtpass_webhook_secret}
   mandate:
     provider: ${MANDATE_PROVIDER:nibss-npsm}

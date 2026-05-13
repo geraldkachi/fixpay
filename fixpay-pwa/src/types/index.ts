@@ -129,3 +129,51 @@ export interface NameEnquiry {
   bankName: string
   sessionId: string
 }
+
+// ─── Backend API envelope ─────────────────────────────────────────────────────
+
+export interface ApiResponse<T> {
+  success: boolean
+  message: string | null
+  data: T
+  errorCode: string | null
+  timestamp: string
+}
+
+// ─── Backend-aligned response shapes ─────────────────────────────────────────
+
+/** Matches WalletBalanceResponse.java. availableBalance is in NGN (not kobo). */
+export interface WalletBalanceResponse {
+  walletId: string
+  currency: string
+  availableBalance: number
+  ledgerBalance: number
+  status: string
+  virtualAccount?: { accountNumber: string; bankName: string; bankCode: string }
+}
+
+/** Matches BillPaymentResponse.java (returned WITHOUT ApiResponse wrapper). */
+export interface BillPaymentResponse {
+  requestId: string
+  transaction_date: string
+  amount: string
+  token?: string
+  units?: string
+  Pin?: string
+  purchased_code?: string
+}
+
+/** Matches MandateResponse.java. maxAmount is in NGN. */
+export interface MandateResponse {
+  mandateReference: string
+  providerReference: string | null
+  bankCode: string
+  accountNumber: string
+  maxAmount: number
+  status: 'pending_auth' | 'active' | 'paused' | 'cancelled' | 'expired'
+  startDate: string
+  endDate: string | null
+  providerMessage: string | null
+  createdAt: string
+  updatedAt: string
+}

@@ -1,4 +1,4 @@
-import type { User, Wallet, Transaction, Mandate, Dispute, TenantConfig, NipBank, ServiceVariation } from '@/types'
+import type { User, Wallet, Transaction, Mandate, Dispute, TenantConfig, NipBank, ServiceVariation, MandateResponse } from '@/types'
 
 export const mockUser: User = {
   id: 'usr_01HXKP3VWRY2J9NVW3B5C',
@@ -38,6 +38,36 @@ export const mockTransactions: Transaction[] = [
 export const mockMandates: Mandate[] = [
   { id: 'mnd_01', accountNumber: '0123456789', bankName: 'Guaranty Trust Bank', bankCode: '058', amountKobo: 500_000, frequency: 'monthly', startDate: '2026-04-01', endDate: '2027-03-31', narrative: 'Monthly Savings Plan', status: 'active', createdAt: '2026-04-01T09:00:00Z' },
   { id: 'mnd_02', accountNumber: '1234567890', bankName: 'Zenith Bank', bankCode: '057', amountKobo: 200_000, frequency: 'weekly', startDate: '2026-05-15', endDate: '2026-12-31', narrative: 'Weekly Contribution', status: 'pending_auth', authorizationUrl: 'https://sandbox.zenithbank.com/mandate-auth?ref=MND20260511', createdAt: '2026-05-11T08:00:00Z' },
+]
+
+// Backend-shaped mock mandates — used by /api/mandates handlers
+export const mockMandateResponses: MandateResponse[] = [
+  {
+    mandateReference: 'MND-GTB-2026-001',
+    providerReference: 'NIBSS_REF_001',
+    bankCode: '058',
+    accountNumber: '0123456789',
+    maxAmount: 5000,
+    status: 'active',
+    startDate: '2026-04-01',
+    endDate: '2027-03-31',
+    providerMessage: 'Mandate active and approved',
+    createdAt: '2026-04-01T09:00:00Z',
+    updatedAt: '2026-04-01T09:00:00Z',
+  },
+  {
+    mandateReference: 'MND-ZNB-2026-002',
+    providerReference: null,
+    bankCode: '057',
+    accountNumber: '1234567890',
+    maxAmount: 2000,
+    status: 'pending_auth',
+    startDate: '2026-05-15',
+    endDate: '2026-12-31',
+    providerMessage: 'Awaiting customer authorization',
+    createdAt: '2026-05-11T08:00:00Z',
+    updatedAt: '2026-05-11T08:00:00Z',
+  },
 ]
 
 export const mockDisputes: Dispute[] = [
@@ -120,5 +150,47 @@ export const variations: Record<string, ServiceVariation[]> = {
   ],
   waec: [
     { variationCode: 'waec-result', name: 'WAEC Result Checker', variationAmount: '1000.00', fixedPrice: 'Yes' },
+  ],
+  'etisalat-data': [
+    { variationCode: 'etisalat-100mb', name: '9mobile 100MB Daily',  variationAmount: '100.00',  fixedPrice: 'Yes' },
+    { variationCode: 'etisalat-1gb',   name: '9mobile 1GB (30 days)', variationAmount: '300.00', fixedPrice: 'Yes' },
+    { variationCode: 'etisalat-2gb',   name: '9mobile 2GB (30 days)', variationAmount: '500.00', fixedPrice: 'Yes' },
+    { variationCode: 'etisalat-5gb',   name: '9mobile 5GB (30 days)', variationAmount: '1500.00', fixedPrice: 'Yes' },
+  ],
+  'ui-insure': [
+    { variationCode: 'third-party-motor',        name: 'Third Party Motor Insurance (Bronze)', variationAmount: '5000.00', fixedPrice: 'Yes' },
+    { variationCode: 'third-party-motor-silver',  name: 'Third Party Motor Insurance (Silver)', variationAmount: '7500.00', fixedPrice: 'Yes' },
+  ],
+  'personal-accident-insurance': [
+    { variationCode: 'personal-accident-basic',    name: 'Personal Accident (Basic)',    variationAmount: '2500.00',  fixedPrice: 'Yes' },
+    { variationCode: 'personal-accident-standard', name: 'Personal Accident (Standard)', variationAmount: '5000.00',  fixedPrice: 'Yes' },
+  ],
+  'home-cover-insurance': [
+    { variationCode: 'home-cover-basic',   name: 'Home Cover (Basic)',   variationAmount: '5000.00',  fixedPrice: 'Yes' },
+    { variationCode: 'home-cover-premium', name: 'Home Cover (Premium)', variationAmount: '10000.00', fixedPrice: 'Yes' },
+  ],
+  'smile-direct': [
+    { variationCode: 'smile-500mb', name: 'Smile 500MB',     variationAmount: '500.00',  fixedPrice: 'Yes' },
+    { variationCode: 'smile-1gb',   name: 'Smile 1GB',       variationAmount: '1000.00', fixedPrice: 'Yes' },
+    { variationCode: 'smile-5gb',   name: 'Smile 5GB',       variationAmount: '3000.00', fixedPrice: 'Yes' },
+  ],
+  'spectranet': [
+    { variationCode: 'spectranet-500mb', name: 'Spectranet 500MB', variationAmount: '500.00',  fixedPrice: 'Yes' },
+    { variationCode: 'spectranet-1gb',   name: 'Spectranet 1GB',   variationAmount: '1000.00', fixedPrice: 'Yes' },
+    { variationCode: 'spectranet-5gb',   name: 'Spectranet 5GB',   variationAmount: '3500.00', fixedPrice: 'Yes' },
+  ],
+  'glo-sme-data': [
+    { variationCode: 'glo-sme-1gb', name: 'Glo SME 1GB (30 days)', variationAmount: '300.00',  fixedPrice: 'Yes' },
+    { variationCode: 'glo-sme-2gb', name: 'Glo SME 2GB (30 days)', variationAmount: '500.00',  fixedPrice: 'Yes' },
+    { variationCode: 'glo-sme-5gb', name: 'Glo SME 5GB (30 days)', variationAmount: '1000.00', fixedPrice: 'Yes' },
+  ],
+  'etisalat-sme-data': [
+    { variationCode: '9mobile-sme-1gb', name: '9mobile SME 1GB', variationAmount: '300.00', fixedPrice: 'Yes' },
+    { variationCode: '9mobile-sme-2gb', name: '9mobile SME 2GB', variationAmount: '500.00', fixedPrice: 'Yes' },
+  ],
+  'showmax': [
+    { variationCode: 'showmax-mobile',        name: 'ShowMax Mobile',          variationAmount: '1200.00', fixedPrice: 'Yes' },
+    { variationCode: 'showmax-mobile-sports', name: 'ShowMax Mobile + Sports', variationAmount: '2400.00', fixedPrice: 'Yes' },
+    { variationCode: 'showmax-standard',      name: 'ShowMax Standard',        variationAmount: '3200.00', fixedPrice: 'Yes' },
   ],
 }

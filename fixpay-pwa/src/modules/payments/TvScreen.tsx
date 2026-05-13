@@ -5,9 +5,10 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useQuery } from '@tanstack/react-query'
 import { CheckCircleIcon } from '@heroicons/react/24/solid'
-import { api } from '@/lib/api'
 import { queryClient } from '@/lib/query-client'
 import type { ServiceVariation, BillerVerify } from '@/types'
+import { paymentsService } from '@/lib/services/payments.service'
+import { authService } from '@/lib/services/auth.service'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
@@ -16,9 +17,10 @@ import { PinPad } from '@/components/ui/PinPad'
 import { Spinner } from '@/components/ui/Spinner'
 
 const PROVIDERS = [
-  { id: 'dstv',       label: 'DStv',       bg: '#0072CE' },
-  { id: 'gotv',       label: 'GOtv',       bg: '#E37022' },
-  { id: 'startimes',  label: 'Startimes',  bg: '#E60000' },
+  { id: 'dstv',      label: 'DStv',      bg: '#0072CE' },
+  { id: 'gotv',      label: 'GOtv',      bg: '#E37022' },
+  { id: 'startimes', label: 'Startimes', bg: '#E60000' },
+  { id: 'showmax',   label: 'ShowMax',   bg: '#E50914' },
 ]
 
 const schema = z.object({
@@ -47,12 +49,12 @@ export function TvScreen() {
   const serviceId = watch('serviceId')
   const variationCode = watch('variationCode')
   const subscriptionType = watch('subscriptionType')
+  const isShowMax = serviceId === 'showmax'
 
-  const { data: varData, isLoading: varsLoading } = useQuery({
+  const { data: variations = [], isLoading: varsLoading } = useQuery<ServiceVariation[]>({
     queryKey: ['variations', serviceId],
-    queryFn: () => api.get<{ variations: ServiceVariation[] }>(`/payments/variations/${serviceId}`).then(r => r.data),
+    queryFn: () => paymentsService.getVariations(serviceId),
   })
-  const variations = varData?.variations ?? []
   const chosen = variations.find(v => v.variationCode === variationCode)
 
   const handleVerify = async () => {
@@ -60,8 +62,8 @@ export function TvScreen() {
     if (!smartcard || smartcard.length < 6) { setVerifyError('Enter smartcard number first'); return }
     setVerifying(true); setVerifyError(''); setVerifyResult(null)
     try {
-      const res = await api.post<BillerVerify>('/payments/verify', { serviceId, billersCode: smartcard })
-      setVerifyResult(res.data)
+      const res = await paymentsService.verify({ serviceId, billersCode: smartcard })
+      setVerifyResult(res)
     } catch {
       setVerifyError('Smartcard not found. Check and retry. (Demo: use 1212121212)')
     } finally { setVerifying(false) }
@@ -74,15 +76,15 @@ export function TvScreen() {
     if (val.length < 6 || !pending || submitting) return
     setSubmitting(true)
     try {
-      await api.post('/auth/pin/verify', { pin: val })
+      await authService.verifyPin(val)
       const amount = subscriptionType === 'renew'
         ? verifyResult?.renewalAmount ?? parseFloat(chosen?.variationAmount ?? '0')
         : parseFloat(chosen?.variationAmount ?? '0')
-      const res = await api.post<{ requestId: string; transaction_date: string }>('/payments/tv', { ...pending, amount })
+      const res = await paymentsService.tv({ ...pending, amount })
       queryClient.invalidateQueries({ queryKey: ['wallet'] })
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
       navigate('/payments/receipt', {
-        state: { type: 'tv', provider: serviceId, customerName: verifyResult?.customerName, smartcard: pending.billersCode, package: chosen?.name ?? 'Renewal', amount, requestId: res.data.requestId, date: res.data.transaction_date },
+        state: { type: 'tv', provider: serviceId, customerName: verifyResult?.customerName, smartcard: pending.billersCode, package: chosen?.name ?? 'Renewal', amount, requestId: res.requestId, date: res.transaction_date },
       })
     } catch {
       setPinError('Incorrect PIN or payment failed.')
@@ -97,7 +99,7 @@ export function TvScreen() {
 
         {/* Provider */}
         <p className="text-[13px] font-semibold text-gray-500 uppercase tracking-wide mb-2">Provider</p>
-        <div className="grid grid-cols-3 gap-2 mb-5">
+        <div className="grid grid-cols-2 gap-2 mb-5">
           {PROVIDERS.map(p => (
             <button key={p.id} onClick={() => { setValue('serviceId', p.id); setValue('variationCode', ''); setVerifyResult(null) }}
               className="py-3 rounded-[14px] border-2 text-white text-[13px] font-bold transition-all pressable"
@@ -108,18 +110,23 @@ export function TvScreen() {
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
-          {/* Smartcard + verify */}
-          <div>
-            <Input label="Smartcard / IUC Number" type="tel" inputMode="numeric" placeholder="e.g. 1212121212"
+          {/* Smartcard or phone */}
+          {isShowMax ? (
+            <Input label="Phone Number" type="tel" inputMode="tel" placeholder="08012345678"
               error={errors.billersCode?.message} {...register('billersCode')} />
-            <p className="text-[11px] text-gray-400 mt-1 px-1">Demo: use 1212121212</p>
-            <Button type="button" variant="outline" size="sm" className="mt-2 w-full" onClick={handleVerify} loading={verifying}>
-              Verify Smartcard
-            </Button>
-          </div>
+          ) : (
+            <div>
+              <Input label="Smartcard / IUC Number" type="tel" inputMode="numeric" placeholder="e.g. 1212121212"
+                error={errors.billersCode?.message} {...register('billersCode')} />
+              <p className="text-[11px] text-gray-400 mt-1 px-1">Demo: use 1212121212</p>
+              <Button type="button" variant="outline" size="sm" className="mt-2 w-full" onClick={handleVerify} loading={verifying}>
+                Verify Smartcard
+              </Button>
+            </div>
+          )}
 
-          {verifyError && <p className="text-ios-red text-[13px]">{verifyError}</p>}
-          {verifyResult && (
+          {!isShowMax && verifyError && <p className="text-ios-red text-[13px]">{verifyError}</p>}
+          {!isShowMax && verifyResult && (
             <div className="bg-green-50 rounded-[14px] px-4 py-3 flex gap-3 items-start">
               <CheckCircleIcon className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
               <div>
@@ -130,18 +137,20 @@ export function TvScreen() {
           )}
 
           {/* Subscription type */}
-          <div className="flex bg-white rounded-[12px] p-1 gap-1 shadow-sm">
-            {(['renew', 'change'] as const).map(t => (
-              <button key={t} type="button" onClick={() => { setValue('subscriptionType', t); setValue('variationCode', '') }}
-                className="flex-1 py-2 rounded-[10px] text-[14px] font-semibold transition-all pressable"
-                style={subscriptionType === t ? { background: 'var(--brand-primary)', color: 'white' } : { color: '#8E8E93' }}>
-                {t === 'renew' ? 'Renew' : 'Change Plan'}
-              </button>
-            ))}
-          </div>
+          {!isShowMax && (
+            <div className="flex bg-white rounded-[12px] p-1 gap-1 shadow-sm">
+              {(['renew', 'change'] as const).map(t => (
+                <button key={t} type="button" onClick={() => { setValue('subscriptionType', t); setValue('variationCode', '') }}
+                  className="flex-1 py-2 rounded-[10px] text-[14px] font-semibold transition-all pressable"
+                  style={subscriptionType === t ? { background: 'var(--brand-primary)', color: 'white' } : { color: '#8E8E93' }}>
+                  {t === 'renew' ? 'Renew' : 'Change Plan'}
+                </button>
+              ))}
+            </div>
+          )}
 
-          {/* Package (only for change) */}
-          {subscriptionType === 'change' && (
+          {/* Package (for change or ShowMax) */}
+          {(subscriptionType === 'change' || isShowMax) && (
             <div>
               <p className="text-[13px] font-semibold text-gray-500 uppercase tracking-wide mb-2">Select Package</p>
               {varsLoading ? <Spinner /> : (
@@ -160,10 +169,12 @@ export function TvScreen() {
             </div>
           )}
 
-          <Button type="submit" fullWidth className="mt-2" disabled={!verifyResult}>
-            {verifyResult && subscriptionType === 'renew'
-              ? `Pay ₦${(verifyResult.renewalAmount ?? 0).toLocaleString()}`
-              : chosen ? `Pay ₦${parseFloat(chosen.variationAmount).toLocaleString()}` : 'Continue'}
+          <Button type="submit" fullWidth className="mt-2" disabled={!isShowMax && !verifyResult}>
+            {isShowMax && chosen
+              ? `Pay ₦${parseFloat(chosen.variationAmount).toLocaleString()}`
+              : verifyResult && subscriptionType === 'renew'
+                ? `Pay ₦${(verifyResult.renewalAmount ?? 0).toLocaleString()}`
+                : chosen ? `Pay ₦${parseFloat(chosen.variationAmount).toLocaleString()}` : 'Continue'}
           </Button>
         </form>
       </div>
