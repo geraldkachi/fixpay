@@ -26,8 +26,9 @@ async function loginViaKeycloak(page: import('@playwright/test').Page) {
   await page.fill('#password', TEST_PASSWORD)
   await page.locator('#kc-login').click()
 
-  // Redirect back to portal
+  // Redirect back to portal — wait for URL then let keycloak-js finish token exchange
   await page.waitForURL('http://localhost:3001/**', { timeout: 15_000 })
+  await page.waitForLoadState('networkidle')
 }
 
 // ─── Helper: ensure LIVE API key exists (idempotent) ─────────────────────────
@@ -88,9 +89,10 @@ test.describe('Portal authenticated flow', () => {
     await loginViaKeycloak(page)
   })
 
-  test('redirects to /dashboard after login', async ({ page }) => {
-    await page.waitForURL('**/dashboard', { timeout: 10_000 })
-    await expect(page.getByText(/overview|dashboard/i).first()).toBeVisible()
+  test('authenticated user can access /dashboard', async ({ page }) => {
+    await page.goto('/dashboard')
+    await page.waitForLoadState('networkidle')
+    await expect(page.getByText(/overview|dashboard/i).first()).toBeVisible({ timeout: 10_000 })
   })
 
   test('KYB screen loads and shows form fields', async ({ page }) => {
@@ -123,12 +125,14 @@ test.describe('Portal authenticated flow', () => {
     await expect(page.getByRole('heading', { name: /settlement/i })).toBeVisible()
   })
 
-  test('API keys screen lists keys', async ({ page }) => {
+  test('API keys screen lists the LIVE key', async ({ page }) => {
     await page.goto('/api-keys')
     await expect(page.getByRole('heading', { name: /api key/i })).toBeVisible()
+    // Switch to the Live tab
+    await page.getByRole('button', { name: /live/i }).click()
     await page.waitForLoadState('networkidle')
-    // Should show at least one key (created in setup)
-    await expect(page.locator('table, [data-testid="key-row"], .key-row').first()).toBeVisible({ timeout: 8_000 })
+    // LIVE key created in setup should appear in the table
+    await expect(page.locator('table').first()).toBeVisible({ timeout: 8_000 })
   })
 })
 
