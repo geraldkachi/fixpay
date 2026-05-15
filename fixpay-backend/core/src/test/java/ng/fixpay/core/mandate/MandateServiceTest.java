@@ -24,8 +24,10 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -157,5 +159,38 @@ class MandateServiceTest {
         assertEquals("PRV-777", response.providerReference());
         assertEquals("Mandate rejected", response.providerMessage());
         verify(eventPublisher, times(1)).publish(eq("mandate.status.updated"), any());
+    }
+
+    // ── Provider outage ───────────────────────────────────────────────────────
+
+    /**
+     * When the mandate provider throws (e.g. NIBSS connection refused), the exception
+     * must propagate and the mandate must NOT be persisted or any event published.
+     */
+    @Test
+    void create_mandateProviderThrows_shouldNotPersistMandateOrPublishEvent() {
+        UUID keycloakId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        UUID tenantId = UUID.randomUUID();
+
+        AppUser user = org.mockito.Mockito.mock(AppUser.class);
+        when(user.getId()).thenReturn(userId);
+        when(user.getTenantId()).thenReturn(tenantId);
+
+        CreateMandateRequest request = new CreateMandateRequest(
+                "044", "0123456789",
+                new BigDecimal("50000.00"),
+                LocalDate.now(), LocalDate.now().plusYears(1)
+        );
+
+        when(jwt.getSubject()).thenReturn(keycloakId.toString());
+        when(userRepository.findByKeycloakId(keycloakId)).thenReturn(Optional.of(user));
+        when(mandateProviderClient.createMandate(any(), eq(request)))
+                .thenThrow(new RuntimeException("NIBSS connection refused"));
+
+        assertThrows(RuntimeException.class, () -> mandateService.create(jwt, request));
+
+        verify(mandateRepository, never()).save(any());
+        verify(eventPublisher, never()).publish(any(), any());
     }
 }
