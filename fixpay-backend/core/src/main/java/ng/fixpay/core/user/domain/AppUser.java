@@ -24,6 +24,9 @@ public class AppUser {
     @Column(length = 255)
     private String email;
 
+    @Column(name = "pin_hash", length = 255)
+    private String pinHash;
+
     @Column(name = "kyc_status", nullable = false, length = 20)
     private String kycStatus = "pending";
 
@@ -60,7 +63,9 @@ public class AppUser {
     public Instant getCreatedAt(){ return createdAt; }
     public Instant getUpdatedAt(){ return updatedAt; }
 
+    public String getPinHash()                 { return pinHash; }
     public void setKycStatus(String kycStatus) { this.kycStatus = kycStatus; }
     public void setTier(short tier)            { this.tier = tier; }
     public void setEmail(String email)         { this.email = email; }
+    public void setPinHash(String pinHash)     { this.pinHash = pinHash; }
 }

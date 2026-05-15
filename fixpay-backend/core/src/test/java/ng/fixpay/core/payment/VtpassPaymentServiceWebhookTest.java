@@ -2,14 +2,17 @@ package ng.fixpay.core.payment;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import ng.fixpay.core.events.DomainEventPublisher;
+import ng.fixpay.core.ledger.LedgerService;
 import ng.fixpay.core.mandate.MandateService;
 import ng.fixpay.core.payment.domain.PaymentJournalEntryRepository;
 import ng.fixpay.core.payment.domain.VtpassPayment;
 import ng.fixpay.core.payment.domain.VtpassPaymentRepository;
 import ng.fixpay.core.payment.dto.VtpassPaymentMethod;
 import ng.fixpay.core.payment.provider.VtpassClient;
+import ng.fixpay.core.payment.provider.VtpassServiceRegistry;
+import ng.fixpay.core.payment.rail.FeeCalculatorService;
+import ng.fixpay.core.payment.rail.PaymentRailRegistry;
 import ng.fixpay.core.user.domain.UserRepository;
-import ng.fixpay.core.wallet.domain.WalletRepository;
 import ng.fixpay.shared.exception.FixPayException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -43,8 +46,11 @@ class VtpassPaymentServiceWebhookTest {
     @Mock UserRepository userRepository;
     @Mock VtpassPaymentRepository paymentRepository;
     @Mock PaymentJournalEntryRepository journalRepository;
-    @Mock WalletRepository walletRepository;
+    @Mock LedgerService ledgerService;
     @Mock VtpassClient vtpassClient;
+    @Mock VtpassServiceRegistry serviceRegistry;
+    @Mock PaymentRailRegistry railRegistry;
+    @Mock FeeCalculatorService feeCalculatorService;
     @Mock MandateService mandateService;
     @Mock DomainEventPublisher eventPublisher;
 
@@ -58,8 +64,11 @@ class VtpassPaymentServiceWebhookTest {
             userRepository,
             paymentRepository,
             journalRepository,
-            walletRepository,
+            ledgerService,
             vtpassClient,
+            serviceRegistry,
+            railRegistry,
+            feeCalculatorService,
             new ObjectMapper(),
             mandateService,
             eventPublisher,

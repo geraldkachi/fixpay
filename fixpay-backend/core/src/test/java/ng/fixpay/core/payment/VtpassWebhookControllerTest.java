@@ -4,6 +4,9 @@ import ng.fixpay.core.payment.dto.VtpassPaymentMethod;
 import ng.fixpay.core.payment.dto.VtpassPaymentStatusResponse;
 import ng.fixpay.shared.exception.FixPayException;
 import org.junit.jupiter.api.Test;
+import ng.fixpay.core.portal.domain.ApiKeyRepository;
+import ng.fixpay.core.portal.domain.IpWhitelistRuleRepository;
+import ng.fixpay.core.tenant.domain.TenantRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -37,6 +40,15 @@ class VtpassWebhookControllerTest {
 
     @MockBean
     VtpassPaymentService paymentService;
+
+    @MockBean
+    ApiKeyRepository apiKeyRepository;
+
+    @MockBean
+    IpWhitelistRuleRepository ipWhitelistRuleRepository;
+
+    @MockBean
+    TenantRepository tenantRepository;
 
     private static final String WEBHOOK_PAYLOAD =
         "{\"paymentReference\":\"FP-VTP-TEST-001\",\"providerStatus\":\"delivered\"," +

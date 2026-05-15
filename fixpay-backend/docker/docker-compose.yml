@@ -81,6 +81,15 @@ services:
       retries:      10
       start_period: 90s
 
+  # ─── MailHog (dev SMTP catch-all) ─────────────────────────────────────────
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    container_name: fixpay-mailhog
+    ports:
+      - "1025:1025"   # SMTP — Spring Mail sends here
+      - "8025:8025"   # Web UI — open http://localhost:8025 to read emails
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   valkey_data:

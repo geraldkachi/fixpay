@@ -31,6 +31,15 @@ spring:
       port:     ${VALKEY_PORT:6380}
       password: ${VALKEY_PASSWORD:valkey_dev_secret}
 
+  mail:
+    host:     ${MAIL_HOST:localhost}
+    port:     ${MAIL_PORT:1025}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail.smtp.auth:            false
+      mail.smtp.starttls.enable: false
+
   security:
     oauth2:
       resourceserver:
@@ -47,6 +56,8 @@ management:
       show-details: always
 
 fixpay:
+  mail:
+    from: ${MAIL_FROM:noreply@fixpay.local}
   keycloak:
     url:           ${KC_URL:http://localhost:8180}
     realm:         ${KC_REALM:customers}
@@ -54,6 +65,8 @@ fixpay:
     admin-client:  admin-cli
     admin-user:    ${KC_ADMIN_USER:admin}
     admin-password: ${KC_ADMIN_PASSWORD:admin_dev_secret}
+    tenant-realm:  ${KC_TENANT_REALM:tenants}
+    tenant-app-client: ${KC_TENANT_APP_CLIENT:fixpay-tenant-portal}
   nats:
     url: ${NATS_URL:nats://localhost:4222}
   events:
@@ -84,6 +97,18 @@ fixpay:
     base-url: ${MANDATE_BASE_URL:https://sandbox.nibss.local}
     api-key: ${MANDATE_API_KEY:}
     secret-key: ${MANDATE_SECRET_KEY:}
+
+  # Payment rail: circuit breaker defaults (all overridable per-processor via config_json)
+  rail:
+    cb:
+      failure-rate-threshold: ${RAIL_CB_FAILURE_RATE:50}       # % failures to open circuit
+      sliding-window-size:    ${RAIL_CB_WINDOW_SIZE:10}         # number of calls in window
+      wait-duration-seconds:  ${RAIL_CB_WAIT_SECONDS:60}        # seconds to stay open before half-open
+      min-calls:              ${RAIL_CB_MIN_CALLS:5}            # min calls before CB activates
+
+# PF4J hot-loadable processor plugins
+pf4j:
+  plugins-dir: ${FIXPAY_PLUGINS_DIR:./plugins}
 
 logging:
   level:

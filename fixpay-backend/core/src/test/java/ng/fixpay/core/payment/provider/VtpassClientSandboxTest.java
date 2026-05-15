@@ -56,12 +56,17 @@ class VtpassClientSandboxTest {
     @Test
     @Order(1)
     void purchaseAirtime_shouldReturnSuccessOrPendingFromSandbox() {
-        String requestId = "FP-TEST-" + System.currentTimeMillis();
+        // VTpass requires first 12 chars to be numeric YYYYMMDDHHII in Africa/Lagos timezone
+        String requestId = java.time.ZonedDateTime.now(java.time.ZoneId.of("Africa/Lagos"))
+                .format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMddHHmm"))
+                + "FP" + java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 8);
 
         VtpassPurchaseResult result = vtpassClient.purchase(
             requestId,
             "airtel",      // correct VTpass service ID for Airtel Airtime VTU
             new BigDecimal("100"),
+            "08011111111",
+            null,
             "08011111111",
             null
         );
@@ -111,7 +116,9 @@ class VtpassClientSandboxTest {
     @Test
     @Order(3)
     void purchaseWithVariationCode_shouldHandleSandboxResponse() {
-        String requestId = "FP-TEST-DATA-" + System.currentTimeMillis();
+        String requestId = java.time.ZonedDateTime.now(java.time.ZoneId.of("Africa/Lagos"))
+                .format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMddHHmm"))
+                + "FP" + java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 8);
 
         // The sandbox may reject an unknown variation code — what we are validating here
         // is that the HTTP wire format (request shape + response parsing) works end-to-end.
@@ -122,7 +129,9 @@ class VtpassClientSandboxTest {
                 "airtel-data",
                 new BigDecimal("100"),
                 "08011111111",
-                "airt-100"     // valid variation code: 100 Naira 75MB 1Day
+                "airt-100",    // valid variation code: 100 Naira 75MB 1Day
+                "08011111111", // customer notification phone
+                null           // subscriptionType not applicable for data
             );
         } catch (Exception ex) {
             // A provider-side rejection is acceptable here — it proves the wire was exercised.

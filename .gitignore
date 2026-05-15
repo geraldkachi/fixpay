@@ -47,7 +47,9 @@ desktop.ini
 # ─── Docker volumes / local infra state ──────────────────────────────────
 docker/postgres/data/
 docker/keycloak/data/
-
+# ─── Test artefacts ──────────────────────────────────────────────────────────
+test-results/
+playwright-report/
 # ─── Logs ─────────────────────────────────────────────────────────────────
 *.log
 logs/

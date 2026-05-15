@@ -27,6 +27,7 @@ public class KeycloakAdminClient {
     private final String adminClient;
     private final String adminUser;
     private final String adminPassword;
+    private final String appClient;
 
     public KeycloakAdminClient(
             @Value("${fixpay.keycloak.url}")            String kcUrl,
@@ -34,7 +35,8 @@ public class KeycloakAdminClient {
             @Value("${fixpay.keycloak.admin-realm}")    String adminRealm,
             @Value("${fixpay.keycloak.admin-client}")   String adminClient,
             @Value("${fixpay.keycloak.admin-user}")     String adminUser,
-            @Value("${fixpay.keycloak.admin-password}") String adminPassword
+            @Value("${fixpay.keycloak.admin-password}") String adminPassword,
+            @Value("${fixpay.keycloak.app-client:fixpay-app}") String appClient
     ) {
         this.kcUrl         = kcUrl;
         this.kcRealm       = kcRealm;
@@ -42,6 +44,7 @@ public class KeycloakAdminClient {
         this.adminClient   = adminClient;
         this.adminUser     = adminUser;
         this.adminPassword = adminPassword;
+        this.appClient     = appClient;
         this.rest          = RestClient.create();
     }
 
@@ -85,8 +88,10 @@ public class KeycloakAdminClient {
         );
 
         Map<String, Object> userRep = new java.util.HashMap<>();
-        userRep.put("username",   phone);
-        userRep.put("enabled",    true);
+        userRep.put("username",       phone);
+        userRep.put("enabled",        true);
+        userRep.put("emailVerified",  true);   // OTP verified externally; skip Keycloak email check
+        userRep.put("requiredActions", List.of()); // clear any default required actions
         userRep.put("credentials", List.of(credential));
         if (email != null && !email.isBlank()) {
             userRep.put("email", email);
@@ -117,5 +122,97 @@ public class KeycloakAdminClient {
         String keycloakId = location.substring(location.lastIndexOf('/') + 1);
         log.info("Created Keycloak user {} in realm {}", keycloakId, kcRealm);
         return UUID.fromString(keycloakId);
+    }
+
+    public record TokenPair(String accessToken, String refreshToken) {}
+
+    /**
+     * Perform ROPC login for a regular user against the customers realm.
+     * @param username phone in E164 format (Keycloak username)
+     * @param password the user's password
+     * @return the access token string
+     */
+    public String getUserToken(String username, String password) {
+        return getUserTokenFull(username, password).accessToken();
+    }
+
+    /**
+     * Perform ROPC login and return both access token and refresh token.
+     */
+    @SuppressWarnings("unchecked")
+    public TokenPair getUserTokenFull(String username, String password) {
+        String tokenUrl = "%s/realms/%s/protocol/openid-connect/token"
+                .formatted(kcUrl, kcRealm);
+
+        // Build form body manually to guarantee '+' is encoded as '%2B'.
+        String encodedUsername;
+        String encodedPassword;
+        try {
+            encodedUsername = java.net.URLEncoder.encode(username, java.nio.charset.StandardCharsets.UTF_8);
+            encodedPassword = java.net.URLEncoder.encode(password, java.nio.charset.StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            throw FixPayException.badRequest("Invalid credentials format");
+        }
+        String formBody = "grant_type=password&client_id=" + appClient
+                + "&username=" + encodedUsername
+                + "&password=" + encodedPassword;
+
+        try {
+            Map<String, Object> response = rest.post()
+                    .uri(tokenUrl)
+                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                    .body(formBody)
+                    .retrieve()
+                    .body(Map.class);
+
+            if (response == null || !response.containsKey("access_token")) {
+                throw FixPayException.unauthorized("Invalid credentials");
+            }
+            return new TokenPair(
+                    (String) response.get("access_token"),
+                    (String) response.getOrDefault("refresh_token", "")
+            );
+        } catch (HttpClientErrorException.Unauthorized e) {
+            throw FixPayException.unauthorized("Invalid credentials");
+        } catch (HttpClientErrorException.BadRequest e) {
+            throw FixPayException.unauthorized("Invalid credentials");
+        }
+    }
+
+    /**
+     * Use a Keycloak refresh token to obtain a new access token + refresh token pair.
+     */
+    @SuppressWarnings("unchecked")
+    public TokenPair refreshToken(String refreshToken) {
+        String tokenUrl = "%s/realms/%s/protocol/openid-connect/token"
+                .formatted(kcUrl, kcRealm);
+
+        String encodedRefreshToken;
+        try {
+            encodedRefreshToken = java.net.URLEncoder.encode(refreshToken, java.nio.charset.StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            throw FixPayException.unauthorized("Invalid refresh token");
+        }
+        String formBody = "grant_type=refresh_token&client_id=" + appClient
+                + "&refresh_token=" + encodedRefreshToken;
+
+        try {
+            Map<String, Object> response = rest.post()
+                    .uri(tokenUrl)
+                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                    .body(formBody)
+                    .retrieve()
+                    .body(Map.class);
+
+            if (response == null || !response.containsKey("access_token")) {
+                throw FixPayException.unauthorized("Session expired");
+            }
+            return new TokenPair(
+                    (String) response.get("access_token"),
+                    (String) response.getOrDefault("refresh_token", refreshToken)
+            );
+        } catch (HttpClientErrorException e) {
+            throw FixPayException.unauthorized("Session expired");
+        }
     }
 }

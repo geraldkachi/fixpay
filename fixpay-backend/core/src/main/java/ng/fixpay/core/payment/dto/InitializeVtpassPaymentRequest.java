@@ -24,5 +24,12 @@ public record InitializeVtpassPaymentRequest(
 
         String mandateReference,
 
-        String callbackUrl
+        String callbackUrl,
+
+        /** Customer notification phone (for electricity token delivery, TV renewal confirmation etc.).
+         *  Falls back to billerCustomerRef when absent. */
+        String customerPhone,
+
+        /** TV subscription type: "change" (new bouquet) or "renew" (current bouquet). */
+        String subscriptionType
 ) {}

@@ -33,4 +33,8 @@ public class FixPayException extends RuntimeException {
     public static FixPayException unauthorized(String reason) {
         return new FixPayException(reason, "UNAUTHORIZED", 401);
     }
+
+    public static FixPayException serviceUnavailable(String reason) {
+        return new FixPayException(reason, "SERVICE_UNAVAILABLE", 503);
+    }
 }

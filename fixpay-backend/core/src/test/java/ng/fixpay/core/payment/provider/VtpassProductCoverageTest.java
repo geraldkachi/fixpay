@@ -207,7 +207,15 @@ class VtpassProductCoverageTest {
         try { Thread.sleep(500); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
 
         String reqId = "FP-SAMP-" + p.tc() + "-" + System.currentTimeMillis();
-        VtpassPurchaseResult result = CLIENT.purchase(reqId, p.serviceId(), amount, p.billerRef(), variationCode);
+        VtpassPurchaseResult result = CLIENT.purchase(
+            reqId,
+            p.serviceId(),
+            amount,
+            p.billerRef(),
+            variationCode,
+            p.billerRef(),
+            null
+        );
         String pCode  = result.providerCode();
         String detail = String.format("var=%s amt=%.0f", variationCode, amount);
 
@@ -229,7 +237,15 @@ class VtpassProductCoverageTest {
         try { Thread.sleep(500); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
 
         String reqId              = "FP-COV-" + p.tc() + "-" + System.currentTimeMillis();
-        VtpassPurchaseResult result = CLIENT.purchase(reqId, p.serviceId(), p.amount(), p.billerRef(), p.variationCode());
+        VtpassPurchaseResult result = CLIENT.purchase(
+            reqId,
+            p.serviceId(),
+            p.amount(),
+            p.billerRef(),
+            p.variationCode(),
+            p.billerRef(),
+            null
+        );
         String code               = result.providerCode();
 
         if (result.successful() || result.pending()) {

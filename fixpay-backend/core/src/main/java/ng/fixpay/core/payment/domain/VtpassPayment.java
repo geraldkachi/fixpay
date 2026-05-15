@@ -55,6 +55,14 @@ public class VtpassPayment {
     @Column(name = "mandate_reference", length = 120)
     private String mandateReference;
 
+    /** The processorId of the PaymentRailAdapter that handled the initiate() step. */
+    @Column(name = "processor_id", length = 60)
+    private String processorId;
+
+    /** Fee charged by the processor for this transaction (in kobo). Used for revenue tracking. */
+    @Column(name = "processor_fee_kobo", nullable = false)
+    private long processorFeeKobo = 0L;
+
     @Column(name = "authorization_payload", columnDefinition = "TEXT")
     private String authorizationPayload;
 
@@ -115,6 +123,8 @@ public class VtpassPayment {
     public String getProviderMessage() { return providerMessage; }
     public String getExternalReference() { return externalReference; }
     public String getMandateReference() { return mandateReference; }
+    public String getProcessorId() { return processorId; }
+    public long getProcessorFeeKobo() { return processorFeeKobo; }
     public String getAuthorizationPayload() { return authorizationPayload; }
     public String getInitIdempotencyKey() { return initIdempotencyKey; }
     public String getLastExecuteIdempotencyKey() { return lastExecuteIdempotencyKey; }
@@ -124,6 +134,9 @@ public class VtpassPayment {
     public void setLastExecuteIdempotencyKey(String lastExecuteIdempotencyKey) {
         this.lastExecuteIdempotencyKey = lastExecuteIdempotencyKey;
     }
+
+    public void setProcessorId(String processorId) { this.processorId = processorId; }
+    public void setProcessorFeeKobo(long processorFeeKobo) { this.processorFeeKobo = processorFeeKobo; }
 
     public void markAuthorized(String providerStatus, String externalReference, String authorizationPayload) {
         this.paymentStatus = "authorized";

@@ -21,5 +21,17 @@ public record BillPaymentRequest(
         String phone,
 
         /** TV only — "renew" or "change". */
-        String subscriptionType
-) {}
+        String subscriptionType,
+
+        /**
+         * Funding method. Defaults to {@link VtpassPaymentMethod#WALLET} when null.
+         * Only {@code WALLET} is fully supported by the simplified bill payment API;
+         * all other methods require the two-step initialize/execute flow.
+         */
+        VtpassPaymentMethod paymentMethod
+) {
+    /** Convenience accessor that falls back to WALLET when no method is specified. */
+    public VtpassPaymentMethod effectivePaymentMethod() {
+        return paymentMethod != null ? paymentMethod : VtpassPaymentMethod.WALLET;
+    }
+}

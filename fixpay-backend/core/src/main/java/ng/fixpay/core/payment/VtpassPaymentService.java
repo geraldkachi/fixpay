@@ -21,9 +21,15 @@ import ng.fixpay.core.payment.dto.VtpassPaymentStatusResponse;
 import ng.fixpay.core.payment.dto.VtpassWebhookRequest;
 import ng.fixpay.core.payment.provider.VtpassClient;
 import ng.fixpay.core.payment.provider.VtpassPurchaseResult;
+import ng.fixpay.core.payment.provider.VtpassServiceRegistry;
+import ng.fixpay.core.payment.rail.FeeCalculatorService;
+import ng.fixpay.core.payment.rail.PaymentRailRegistry;
+import ng.fixpay.core.payment.rail.PaymentRailRegistry.ResolvedAdapter;
 import ng.fixpay.core.user.domain.AppUser;
 import ng.fixpay.core.user.domain.UserRepository;
 import ng.fixpay.shared.exception.FixPayException;
+import ng.fixpay.shared.payment.PaymentRailRequest;
+import ng.fixpay.shared.payment.PaymentRailResult;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,9 +40,11 @@ import javax.crypto.spec.SecretKeySpec;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
-import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -51,6 +59,9 @@ public class VtpassPaymentService {
     private final PaymentJournalEntryRepository paymentJournalRepository;
     private final LedgerService ledgerService;
     private final VtpassClient vtpassClient;
+    private final VtpassServiceRegistry serviceRegistry;
+    private final PaymentRailRegistry railRegistry;
+    private final FeeCalculatorService feeCalculatorService;
     private final ObjectMapper objectMapper;
     private final MandateService mandateService;
     private final DomainEventPublisher eventPublisher;
@@ -62,6 +73,9 @@ public class VtpassPaymentService {
             PaymentJournalEntryRepository paymentJournalRepository,
             LedgerService ledgerService,
             VtpassClient vtpassClient,
+            VtpassServiceRegistry serviceRegistry,
+            PaymentRailRegistry railRegistry,
+            FeeCalculatorService feeCalculatorService,
             ObjectMapper objectMapper,
             MandateService mandateService,
             DomainEventPublisher eventPublisher,
@@ -72,6 +86,9 @@ public class VtpassPaymentService {
         this.paymentJournalRepository = paymentJournalRepository;
         this.ledgerService = ledgerService;
         this.vtpassClient = vtpassClient;
+        this.serviceRegistry = serviceRegistry;
+        this.railRegistry = railRegistry;
+        this.feeCalculatorService = feeCalculatorService;
         this.objectMapper = objectMapper;
         this.mandateService = mandateService;
         this.eventPublisher = eventPublisher;
@@ -84,6 +101,11 @@ public class VtpassPaymentService {
         AppUser user = userRepository.findByKeycloakId(keycloakId)
                 .orElseThrow(() -> FixPayException.notFound("User"));
 
+        if (!serviceRegistry.isAvailable(request.serviceId())) {
+            throw FixPayException.serviceUnavailable(
+                    "Service '" + request.serviceId() + "' is currently unavailable. Please try again later.");
+        }
+
         if (idempotencyKey != null && !idempotencyKey.isBlank()) {
             var existing = paymentRepository.findByInitIdempotencyKeyAndUserId(idempotencyKey, user.getId());
             if (existing.isPresent()) {
@@ -91,15 +113,8 @@ public class VtpassPaymentService {
             }
         }
 
-        if (request.paymentMethod() == VtpassPaymentMethod.NIBSS_MANDATE
-                && (request.mandateReference() == null || request.mandateReference().isBlank())) {
-            throw FixPayException.badRequest("mandateReference is required for NIBSS_MANDATE payment");
-        }
-
-        if (request.paymentMethod() == VtpassPaymentMethod.NIBSS_MANDATE
-                && !mandateService.isActiveMandate(user.getId(), request.mandateReference())) {
-            throw FixPayException.badRequest("Active mandate is required for NIBSS_MANDATE payment");
-        }
+        // ── Resolve the payment rail adapter ──────────────────────────────────
+        ResolvedAdapter resolved = railRegistry.resolve(user.getTenantId(), request.paymentMethod());
 
         String paymentReference = "FP-VTP-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         VtpassPayment payment = new VtpassPayment(
@@ -114,11 +129,51 @@ public class VtpassPaymentService {
             (idempotencyKey == null || idempotencyKey.isBlank()) ? null : idempotencyKey
         );
 
-        RailDecision decision = decideRailAuthorization(request, paymentReference);
-        if (decision.pendingAuthorization()) {
-            payment.markPendingAuthorization("pending", decision.externalReference(), toJson(decision.payload()));
+        // ── Initiate the funding rail ──────────────────────────────────────────
+        PaymentRailRequest railRequest = new PaymentRailRequest(
+                user.getId(), user.getTenantId(), paymentReference,
+                request.amount(), "NGN", request.billerCustomerRef(),
+                request.variationCode(), request.mandateReference(), request.callbackUrl(),
+                request.customerPhone(), request.subscriptionType(),
+                resolved.processorConfig()
+        );
+        PaymentRailResult railResult;
+        try {
+            railResult = resolved.adapter().initiate(railRequest);
+            railRegistry.recordSuccess(resolved.adapter().processorId());
+        } catch (Exception e) {
+            railRegistry.recordFailure(resolved.adapter().processorId(), e);
+            throw e;
+        }
+
+        if (railResult.isFailed()) {
+            throw FixPayException.badRequest(railResult.failureReason() != null
+                    ? railResult.failureReason() : "Payment rail rejected the request");
+        }
+
+        // Build the stored authorization payload (variationCode + customerPhone + subscriptionType + rail metadata)
+        Map<String, String> payload = new LinkedHashMap<>();
+        if (request.variationCode() != null && !request.variationCode().isBlank()) {
+            payload.put("variationCode", request.variationCode());
+        }
+        if (request.customerPhone() != null && !request.customerPhone().isBlank()) {
+            payload.put("customerPhone", request.customerPhone());
+        }
+        if (request.subscriptionType() != null && !request.subscriptionType().isBlank()) {
+            payload.put("subscriptionType", request.subscriptionType());
+        }
+        if (railResult.externalReference() != null) {
+            payload.put("railExternalRef", railResult.externalReference());
+        }
+        payload.put("processorId", resolved.adapter().processorId());
+
+        // Store which processor handled this payment so execute() uses the same one
+        payment.setProcessorId(resolved.adapter().processorId());
+
+        if (railResult.isPending()) {
+            payment.markPendingAuthorization("pending", railResult.externalReference(), toJson(payload));
         } else {
-            payment.markAuthorized("ready", decision.externalReference(), toJson(decision.payload()));
+            payment.markAuthorized("ready", railResult.externalReference(), toJson(payload));
         }
 
         paymentRepository.save(payment);
@@ -128,16 +183,20 @@ public class VtpassPaymentService {
             payment.getAmount(),
             null,
             null,
-            "Payment initialized",
+            "Payment initialized via " + resolved.adapter().processorId() + " rail",
             toJson(Map.of(
                 "paymentMethod", payment.getPaymentMethod().name(),
+                "processorId",   resolved.adapter().processorId(),
                 "providerStatus", payment.getProviderStatus(),
                 "idempotencyKey", Objects.toString(idempotencyKey, "")
             ))
         );
         publishPaymentEvent("payment.initialized", payment);
 
-        return toInitializeResponse(payment, decision.authorizationMessage(), decision.ussdCode(), decision.checkoutUrl());
+        return toInitializeResponse(payment,
+                railResult.authorizationMessage(),
+                railResult.ussdCode(),
+                railResult.checkoutUrl());
     }
 
     @Transactional(readOnly = true)
@@ -192,12 +251,45 @@ public class VtpassPaymentService {
             payment.setLastExecuteIdempotencyKey(executeIdempotencyKey);
         }
 
+        // ── Confirm funding via the rail adapter ──────────────────────────────
+        // Use resolveById so we always confirm with the SAME processor used in initiate().
+        String storedProcessorId = payment.getProcessorId();
+        var resolvedForConfirm = (storedProcessorId != null)
+                ? railRegistry.resolveById(storedProcessorId)
+                        .map(a -> new ResolvedAdapter(a, parseProcessorConfig(payment.getAuthorizationPayload()), null))
+                        .orElse(null)
+                : null;
+        if (resolvedForConfirm == null) {
+            // Fallback: original resolve (e.g. processorId not yet stored on old payments)
+            resolvedForConfirm = railRegistry.resolve(user.getTenantId(), payment.getPaymentMethod());
+        }
+        final ResolvedAdapter resolved = resolvedForConfirm;
+        PaymentRailResult fundConfirm;
+        try {
+            fundConfirm = resolved.adapter().confirmFunded(paymentReference);
+            railRegistry.recordSuccess(resolved.adapter().processorId());
+        } catch (Exception e) {
+            railRegistry.recordFailure(resolved.adapter().processorId(), e);
+            throw e;
+        }
+        if (fundConfirm.isFailed()) {
+            payment.markFailed("provider_rejected", "RAIL_UNCONFIRMED", fundConfirm.failureReason(), null);
+            paymentRepository.save(payment);
+            journal(payment, "RAIL_UNCONFIRMED", payment.getAmount(), null, null,
+                    "Rail did not confirm funding: " + fundConfirm.failureReason(), null);
+            publishPaymentEvent("payment.failed", payment);
+            throw FixPayException.badRequest(fundConfirm.failureReason() != null
+                    ? fundConfirm.failureReason() : "Payment not yet confirmed by the payment provider");
+        }
+
         journal(payment, "PAYMENT_EXECUTION_STARTED", payment.getAmount(), null, null,
-                "Payment execution started",
-                toJson(Map.of("paymentMethod", payment.getPaymentMethod().name())));
+                "Payment execution started via " + resolved.adapter().processorId(),
+                toJson(Map.of("paymentMethod", payment.getPaymentMethod().name(),
+                              "processorId", resolved.adapter().processorId())));
         publishPaymentEvent("payment.execution.started", payment);
 
         // ── Ledger debit (runs in REQUIRES_NEW — committed before VTpass call) ──
+        // Only for WALLET rail; all other rails collect funds externally.
         DebitResult debitResult = null;
         if (payment.getPaymentMethod() == VtpassPaymentMethod.WALLET) {
             debitResult = ledgerService.debit(
@@ -218,10 +310,17 @@ public class VtpassPaymentService {
                 payment.getServiceId(),
                 payment.getAmount(),
                 payment.getBillerCustomerRef(),
-                extractVariationCode(payment.getAuthorizationPayload())
+                extractVariationCode(payment.getAuthorizationPayload()),
+                extractCustomerPhone(payment.getAuthorizationPayload()),
+                extractSubscriptionType(payment.getAuthorizationPayload())
         );
 
         if (result.successful()) {
+            // Calculate and store processor fee for revenue tracking
+            if (resolved.railConfigId() != null) {
+                long feeKobo = feeCalculatorService.calculateFee(resolved.railConfigId(), payment.getAmount());
+                payment.setProcessorFeeKobo(feeKobo);
+            }
             payment.markCompleted(result.providerStatus(), result.providerCode(), result.providerMessage(), result.requestId());
             journal(payment, "PROVIDER_COMPLETED", payment.getAmount(), null, null,
                     "Provider completed payment", result.rawResponse());
@@ -481,10 +580,18 @@ public class VtpassPaymentService {
     }
 
     private RailDecision decideRailAuthorization(InitializeVtpassPaymentRequest request, String paymentReference) {
+        // NOTE: This method is retained only for reference during the rail migration.
+        // It is no longer called. The PaymentRailRegistry + PaymentRailAdapter replaces it.
         String externalReference = "VTP-INIT-" + paymentReference;
         Map<String, String> payload = new LinkedHashMap<>();
         if (request.variationCode() != null && !request.variationCode().isBlank()) {
             payload.put("variationCode", request.variationCode());
+        }
+        if (request.customerPhone() != null && !request.customerPhone().isBlank()) {
+            payload.put("customerPhone", request.customerPhone());
+        }
+        if (request.subscriptionType() != null && !request.subscriptionType().isBlank()) {
+            payload.put("subscriptionType", request.subscriptionType());
         }
 
         return switch (request.paymentMethod()) {
@@ -510,7 +617,24 @@ public class VtpassPaymentService {
                 payload.put("mandateReference", request.mandateReference());
                 yield new RailDecision(true, externalReference, payload, "Mandate debit initialized. Awaiting NIBSS callback authorization.", null, null);
             }
+            case BANK_TRANSFER, OPAY -> {
+                payload.put("action", "external_checkout");
+                yield new RailDecision(true, externalReference, payload, "Redirecting to external payment provider.", null, null);
+            }
         };
+    }
+
+    /** Parses a limited config map from the stored authorization payload JSON (for resolveById fallback). */
+    private Map<String, String> parseProcessorConfig(String authorizationPayload) {
+        if (authorizationPayload == null || authorizationPayload.isBlank()) {
+            return Collections.emptyMap();
+        }
+        try {
+            return objectMapper.readValue(authorizationPayload,
+                    new com.fasterxml.jackson.core.type.TypeReference<>() {});
+        } catch (Exception ignored) {
+            return Collections.emptyMap();
+        }
     }
 
     private String toJson(Object value) {
@@ -522,9 +646,11 @@ public class VtpassPaymentService {
     }
 
     private String generateRequestId() {
-        String datePrefix = LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
-        String suffix = UUID.randomUUID().toString().replace("-", "").substring(0, 12);
-        return datePrefix + "-" + suffix;
+        // VTpass requires: first 12 chars numeric = YYYYMMDDHHII in Africa/Lagos (GMT+1)
+        String prefix = ZonedDateTime.now(ZoneId.of("Africa/Lagos"))
+                .format(DateTimeFormatter.ofPattern("yyyyMMddHHmm"));
+        String suffix = UUID.randomUUID().toString().replace("-", "").substring(0, 10);
+        return prefix + suffix;
     }
 
     private String extractVariationCode(String authorizationPayload) {
@@ -534,6 +660,32 @@ public class VtpassPaymentService {
         try {
             var node = objectMapper.readTree(authorizationPayload);
             var value = node.get("variationCode");
+            return value == null || value.isNull() ? null : value.asText();
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private String extractCustomerPhone(String authorizationPayload) {
+        if (authorizationPayload == null || authorizationPayload.isBlank()) {
+            return null;
+        }
+        try {
+            var node = objectMapper.readTree(authorizationPayload);
+            var value = node.get("customerPhone");
+            return value == null || value.isNull() ? null : value.asText();
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private String extractSubscriptionType(String authorizationPayload) {
+        if (authorizationPayload == null || authorizationPayload.isBlank()) {
+            return null;
+        }
+        try {
+            var node = objectMapper.readTree(authorizationPayload);
+            var value = node.get("subscriptionType");
             return value == null || value.isNull() ? null : value.asText();
         } catch (Exception ignored) {
             return null;
@@ -562,9 +714,27 @@ public class VtpassPaymentService {
         AppUser user = userRepository.findByKeycloakId(keycloakId)
                 .orElseThrow(() -> FixPayException.notFound("User"));
 
+        if (!serviceRegistry.isAvailable(request.serviceId())) {
+            throw FixPayException.serviceUnavailable(
+                    "Service '" + request.serviceId() + "' is currently unavailable. Please try again later.");
+        }
+
         String billerRef = request.billersCode() != null && !request.billersCode().isBlank()
                 ? request.billersCode()
                 : request.phone();
+
+        VtpassPaymentMethod effectiveMethod = request.effectivePaymentMethod();
+
+        // The simplified API only supports synchronous rails. Async methods (CARD, USSD, etc.)
+        // require the two-step initialize/execute flow via /api/payments/vtpass/initialize.
+        if (effectiveMethod != VtpassPaymentMethod.WALLET) {
+            throw FixPayException.badRequest(
+                    "Payment method '" + effectiveMethod + "' requires the two-step flow. " +
+                    "Use POST /api/payments/vtpass/initialize instead.");
+        }
+
+        // Resolve rail adapter (validates that WALLET rail is configured for this tenant)
+        ResolvedAdapter resolved = railRegistry.resolve(user.getTenantId(), effectiveMethod);
 
         String paymentReference = "FP-VTP-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         VtpassPayment payment = new VtpassPayment(
@@ -574,16 +744,18 @@ public class VtpassPaymentService {
                 request.serviceId(),
                 billerRef,
                 request.amount(),
-                VtpassPaymentMethod.WALLET,
+                effectiveMethod,
                 null,
                 null
         );
         payment.markAuthorized("ready", null,
                 toJson(Map.of("action", "debit_wallet_and_purchase",
-                        "variationCode", request.variationCode() != null ? request.variationCode() : "")));
+                        "variationCode", request.variationCode() != null ? request.variationCode() : "",
+                        "processorId", resolved.adapter().processorId())));
+        payment.setProcessorId(resolved.adapter().processorId());
         paymentRepository.save(payment);
         journal(payment, "PAYMENT_INITIALIZED", payment.getAmount(), null, null,
-                "Immediate bill payment initialized", null);
+                "Immediate bill payment initialized via " + resolved.adapter().processorId(), null);
 
         // ── Ledger debit (committed in its own transaction) ──────────────────
         DebitResult debitResult = ledgerService.debit(
@@ -603,10 +775,17 @@ public class VtpassPaymentService {
                 request.serviceId(),
                 request.amount(),
                 billerRef,
-                request.variationCode()
+                request.variationCode(),
+                request.phone(),          // customer notification phone
+                request.subscriptionType() // TV: "change" or "renew"
         );
 
         if (result.successful()) {
+            // Track processor fee for billing/settlement module
+            if (resolved.railConfigId() != null) {
+                long feeKobo = feeCalculatorService.calculateFee(resolved.railConfigId(), request.amount());
+                payment.setProcessorFeeKobo(feeKobo);
+            }
             payment.markCompleted(result.providerStatus(), result.providerCode(), result.providerMessage(), result.requestId());
             journal(payment, "PROVIDER_COMPLETED", payment.getAmount(), null, null,
                     "Provider completed bill payment", result.rawResponse());

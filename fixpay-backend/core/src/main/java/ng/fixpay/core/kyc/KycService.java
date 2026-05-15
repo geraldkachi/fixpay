@@ -104,6 +104,66 @@ public class KycService {
                 .orElse(new KycStatusResponse(user.getKycStatus(), "not_started", null, null, null));
     }
 
+    /**
+     * Verify NIN in dev mode (pass-through without external verification).
+     */
+    @Transactional
+    public java.util.Map<String, Object> verifyNin(String keycloakId) {
+        markKycVerified(keycloakId, "NIN");
+        return java.util.Map.of(
+                "message", "NIN verified",
+                "data", java.util.Map.of(
+                        "firstName", "JOHN",
+                        "lastName", "ADEYEMI",
+                        "middleName", "CHUKWU",
+                        "dateOfBirth", "1990-05-11",
+                        "gender", "M"
+                )
+        );
+    }
+
+    /**
+     * Verify BVN in dev mode (pass-through without external verification).
+     */
+    @Transactional
+    public java.util.Map<String, Object> verifyBvn(String keycloakId) {
+        markKycVerified(keycloakId, "BVN");
+        return java.util.Map.of(
+                "message", "BVN verified",
+                "data", java.util.Map.of(
+                        "firstName", "JOHN",
+                        "lastName", "ADEYEMI",
+                        "dateOfBirth", "1990-05-11",
+                        "enrollmentBank", "Guaranty Trust Bank",
+                        "kycLevel", "2"
+                )
+        );
+    }
+
+    /**
+     * Verify selfie in dev mode (pass-through without external verification).
+     */
+    @Transactional
+    public java.util.Map<String, Object> verifySelfie(String keycloakId) {
+        markKycVerified(keycloakId, "Selfie");
+        return java.util.Map.of(
+                "message", "Liveness check passed",
+                "score", 0.97
+        );
+    }
+
+    private void markKycVerified(String keycloakId, String step) {
+        UUID kycId = UUID.fromString(keycloakId);
+        AppUser user = userRepository.findByKeycloakId(kycId)
+                .orElseThrow(() -> FixPayException.notFound("User"));
+        // In dev mode, all steps pass immediately
+        user.setKycStatus("verified");
+        if (user.getTier() < 2) {
+            user.setTier((short) 2);
+        }
+        userRepository.save(user);
+    }
+
     private String toJson(Object value) {
         try {
             return objectMapper.writeValueAsString(value);
