@@ -65,7 +65,7 @@ class SecurityConfigAdminRoutesTest {
 
     @Test
     void adminRoute_withPlatformAdmin_returns200() throws Exception {
-        when(tenantRepository.search(any(), any(), any(), any(), any())).thenReturn(new PageImpl<>(List.of()));
+        when(tenantRepository.search(any(), any(), any(), anyBoolean(), any(), any())).thenReturn(new PageImpl<>(List.of()));
 
         mockMvc.perform(get("/api/admin/tenants")
                         .with(jwt().authorities(() -> "PLATFORM_ADMIN")))

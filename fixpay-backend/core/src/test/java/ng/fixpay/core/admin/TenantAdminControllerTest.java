@@ -49,7 +49,7 @@ class TenantAdminControllerTest {
         Tenant tenant = sampleTenant(UUID.randomUUID(), "acme", "Acme Ltd", Tenant.Status.ACTIVE);
         Page<Tenant> page = new PageImpl<>(List.of(tenant), PageRequest.of(0, 20), 1);
 
-        when(tenantRepository.search(eq(Tenant.Status.ACTIVE), eq(Tenant.Plan.STARTER), eq(Tenant.KybStatus.PENDING), eq("acme"), any()))
+        when(tenantRepository.search(eq(Tenant.Status.ACTIVE), eq(Tenant.Plan.STARTER), eq(Tenant.KybStatus.PENDING), eq(true), eq("acme"), any()))
                 .thenReturn(page);
 
         mockMvc.perform(get("/api/admin/tenants")

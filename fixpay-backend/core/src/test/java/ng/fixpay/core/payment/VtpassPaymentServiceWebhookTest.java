@@ -29,7 +29,8 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.*;
 
 /**
  * Unit tests for VtpassPaymentService webhook processing.
@@ -194,6 +195,58 @@ class VtpassPaymentServiceWebhookTest {
         service.processWebhook(rawHex, payload);
 
         assertEquals("completed", payment.getPaymentStatus());
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Event publishing
+    // ─────────────────────────────────────────────────────────────────────────
+
+    @Test
+    void processWebhook_deliveredStatus_shouldPublishCompletedEvent() throws Exception {
+        String payload = buildPayload("FP-VTP-EVT-01", "delivered", "000", "Success", "PROV-E01");
+        String sig = "sha256=" + computeHmac(WEBHOOK_SECRET, payload);
+
+        VtpassPayment payment = buildAuthorizedPayment("FP-VTP-EVT-01");
+        when(paymentRepository.findByPaymentReference("FP-VTP-EVT-01")).thenReturn(Optional.of(payment));
+        when(journalRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        service.processWebhook(sig, payload);
+
+        verify(eventPublisher, times(1)).publish(eq("payment.completed"), any());
+        verify(eventPublisher, never()).publish(eq("payment.failed"), any());
+        verify(eventPublisher, never()).publish(eq("payment.pending"), any());
+    }
+
+    @Test
+    void processWebhook_pendingStatus_shouldPublishPendingEvent() throws Exception {
+        String payload = buildPayload("FP-VTP-EVT-02", "pending", "099", "Pending", "PROV-E02");
+        String sig = "sha256=" + computeHmac(WEBHOOK_SECRET, payload);
+
+        VtpassPayment payment = buildAuthorizedPayment("FP-VTP-EVT-02");
+        when(paymentRepository.findByPaymentReference("FP-VTP-EVT-02")).thenReturn(Optional.of(payment));
+        when(journalRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        service.processWebhook(sig, payload);
+
+        verify(eventPublisher, times(1)).publish(eq("payment.pending"), any());
+        verify(eventPublisher, never()).publish(eq("payment.completed"), any());
+        verify(eventPublisher, never()).publish(eq("payment.failed"), any());
+    }
+
+    @Test
+    void processWebhook_failedStatus_shouldPublishFailedEvent() throws Exception {
+        String payload = buildPayload("FP-VTP-EVT-03", "failed", "016", "Failed", "PROV-E03");
+        String sig = "sha256=" + computeHmac(WEBHOOK_SECRET, payload);
+
+        VtpassPayment payment = buildAuthorizedPayment("FP-VTP-EVT-03");
+        when(paymentRepository.findByPaymentReference("FP-VTP-EVT-03")).thenReturn(Optional.of(payment));
+        when(journalRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        service.processWebhook(sig, payload);
+
+        verify(eventPublisher, times(1)).publish(eq("payment.failed"), any());
+        verify(eventPublisher, never()).publish(eq("payment.completed"), any());
+        verify(eventPublisher, never()).publish(eq("payment.pending"), any());
     }
 
     // ─────────────────────────────────────────────────────────────────────────

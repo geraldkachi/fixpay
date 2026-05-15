@@ -58,6 +58,7 @@ class TenantRepositoryTest {
                 Tenant.Status.ACTIVE,
                 null,
                 null,
+                true,
                 "acme",
                 PageRequest.of(0, 10)
         );
@@ -72,6 +73,7 @@ class TenantRepositoryTest {
                 null,
                 Tenant.Plan.GROWTH,
                 Tenant.KybStatus.IN_REVIEW,
+                false,
                 null,
                 PageRequest.of(0, 10)
         );
