@@ -33,6 +33,13 @@ api.interceptors.response.use(
     const orig = err.config
     if (err.response?.status === 401 && !orig._retry) {
       orig._retry = true
+
+      // Only attempt a token refresh when the user has an active session.
+      // Skipping this for unauthenticated requests (login page, splash, tenant-config)
+      // prevents an infinite reload loop: 401 → refresh fails → hard redirect → 401 → …
+      const { token, isAuthenticated } = useAuthStore.getState()
+      if (!token && !isAuthenticated) return Promise.reject(err)
+
       if (refreshing) {
         return new Promise(res => { queue.push(t => { orig.headers.Authorization = `Bearer ${t}`; res(api(orig)) }) })
       }
@@ -41,7 +48,8 @@ api.interceptors.response.use(
         // withCredentials sends the httpOnly refresh_token cookie automatically.
         // The server returns a new accessToken in the body AND rotates the cookie.
         const { data } = await axios.post('/api/auth/refresh', {}, { withCredentials: true })
-        const t = data.accessToken as string
+        // Backend wraps in ApiResponse<{accessToken}>: {success, data: {accessToken}}
+        const t = (data.data?.accessToken ?? data.accessToken) as string
         // Store the new token in memory only — NOT in localStorage
         useAuthStore.getState().setToken(t)
         queue.forEach(cb => cb(t)); queue = []
@@ -49,7 +57,10 @@ api.interceptors.response.use(
         return api(orig)
       } catch {
         await serverLogout()
-        window.location.href = '/auth/login'
+        // Avoid hard-redirecting if already on an auth page (prevents reload loop)
+        if (!window.location.pathname.startsWith('/auth')) {
+          window.location.href = '/auth/login'
+        }
       } finally {
         refreshing = false
       }

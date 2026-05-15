@@ -18,12 +18,15 @@ interface AuthState {
   kycCompleted: boolean
   pendingPhone: string | null
   pendingEmail: string | null
+  /** True once zustand-persist has finished reading from localStorage */
+  _hasHydrated: boolean
   setToken: (token: string) => void
   setUser: (user: User) => void
   setPinCreated: (v: boolean) => void
   setKycCompleted: (v: boolean) => void
   setPending: (phone?: string, email?: string) => void
   logout: () => void
+  setHasHydrated: (v: boolean) => void
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -36,17 +39,18 @@ export const useAuthStore = create<AuthState>()(
       kycCompleted: false,
       pendingPhone: null,
       pendingEmail: null,
+      _hasHydrated: false,
       setToken: (token) => set({ token, isAuthenticated: true }),
       setUser: (user) => set({ user }),
       setPinCreated: (v) => set({ pinCreated: v }),
       setKycCompleted: (v) => set({ kycCompleted: v }),
       setPending: (phone, email) => set({ pendingPhone: phone ?? null, pendingEmail: email ?? null }),
       logout: () => set({ token: null, user: null, isAuthenticated: false, pinCreated: false, kycCompleted: false }),
+      setHasHydrated: (v) => set({ _hasHydrated: v }),
     }),
     {
       name: 'fixpay-auth',
-      // token is memory-only — never written to localStorage.
-      // The server manages session persistence via httpOnly cookies.
+      // token and _hasHydrated are memory-only — never written to localStorage.
       partialize: (state) => ({
         user: state.user,
         isAuthenticated: state.isAuthenticated,
@@ -55,6 +59,9 @@ export const useAuthStore = create<AuthState>()(
         pendingPhone: state.pendingPhone,
         pendingEmail: state.pendingEmail,
       }),
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true)
+      },
     }
   )
 )

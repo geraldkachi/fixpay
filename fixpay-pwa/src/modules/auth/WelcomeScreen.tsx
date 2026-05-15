@@ -42,8 +42,8 @@ export function WelcomeScreen() {
 
       {/* CTAs */}
       <div className="px-6 pb-safe flex flex-col gap-3 pb-8">
-        <Button fullWidth onClick={() => navigate('/auth/register')}>Get Started</Button>
-        <Button fullWidth variant="outline" onClick={() => navigate('/auth/login')}>Sign In</Button>
+        <Button fullWidth onClick={() => { localStorage.setItem('fixpay_onboarded', '1'); navigate('/auth/register') }}>Get Started</Button>
+        <Button fullWidth variant="outline" onClick={() => { localStorage.setItem('fixpay_onboarded', '1'); navigate('/auth/login') }}>Sign In</Button>
       </div>
     </div>
   )

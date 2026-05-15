@@ -5,37 +5,61 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { api } from '@/lib/api'
 import { useAuthStore } from '@/store/auth.store'
+import { useTenant } from '@/store/tenant.store'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 
-const schema = z.discriminatedUnion('mode', [
-  z.object({ mode: z.literal('phone'), identifier: z.string().regex(/^0[789]\d{9}$/, 'Enter a valid 11-digit phone number'), password: z.string().min(6, 'At least 6 characters') }),
-  z.object({ mode: z.literal('email'), identifier: z.string().email('Enter a valid email'), password: z.string().min(6, 'At least 6 characters') }),
-])
+function toE164(phone: string): string {
+  const digits = phone.replace(/\D/g, '')
+  if (digits.startsWith('0')) return '+234' + digits.slice(1)
+  return '+' + digits
+}
+
+const schema = z.object({
+  phone: z.string().regex(/^0[789]\d{9}$/, 'Enter a valid 11-digit phone number'),
+  email: z.string().email('Enter a valid email address'),
+  password: z.string().min(8, 'At least 8 characters'),
+  confirmPassword: z.string().min(1, 'Please confirm your password'),
+}).refine(data => data.password === data.confirmPassword, {
+  message: 'Passwords do not match',
+  path: ['confirmPassword'],
+})
 type FormData = z.infer<typeof schema>
 
 export function RegisterScreen() {
   const navigate = useNavigate()
   const { setPending } = useAuthStore()
-  const [mode, setMode] = useState<'phone' | 'email'>('phone')
+  const { tenantId } = useTenant()
   const [serverError, setServerError] = useState('')
 
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
+  const { register, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { mode: 'phone', identifier: '', password: '' },
+    defaultValues: { phone: '', email: '', password: '', confirmPassword: '' },
+    mode: 'onChange',
   })
+
+  const password = watch('password')
+  const confirmPassword = watch('confirmPassword')
+  const passwordsMatch = confirmPassword.length > 0 && password === confirmPassword
 
   const onSubmit = async (data: FormData) => {
     setServerError('')
     try {
-      await api.post('/auth/register', { [mode]: data.identifier, password: data.password })
-      setPending(mode === 'phone' ? data.identifier : undefined, mode === 'email' ? data.identifier : undefined)
+      await api.post('/auth/register', { tenantId, phone: toE164(data.phone), email: data.email, password: data.password })
+      setPending(data.phone, data.email)
       navigate('/auth/otp')
-    } catch {
-      setServerError('Registration failed. Try again.')
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+      setServerError(msg ?? 'Registration failed. Try again.')
     }
   }
+
+  const confirmSuffix = confirmPassword.length > 0
+    ? passwordsMatch
+      ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#34C759" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+      : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF3B30" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+    : undefined
 
   return (
     <div className="flex flex-col h-[100dvh] bg-[#F2F2F7]">
@@ -43,26 +67,19 @@ export function RegisterScreen() {
       <div className="flex-1 overflow-y-auto no-scrollbar px-4 pt-4 pb-8 animate-slide-up">
         <p className="text-[15px] text-gray-500 mb-6">Join FixPay to send money and pay bills.</p>
 
-        {/* Mode toggle */}
-        <div className="flex bg-white rounded-[12px] p-1 gap-1 mb-6 shadow-sm">
-          {(['phone', 'email'] as const).map(m => (
-            <button key={m} onClick={() => setMode(m)}
-              className="flex-1 py-2 rounded-[10px] text-[14px] font-semibold transition-all duration-200 pressable"
-              style={mode === m ? { background: 'var(--brand-primary)', color: 'white' } : { color: '#8E8E93' }}>
-              {m === 'phone' ? 'Phone Number' : 'Email'}
-            </button>
-          ))}
-        </div>
-
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
-          <input type="hidden" {...register('mode')} value={mode} />
-          <Input label={mode === 'phone' ? 'Phone Number' : 'Email Address'} type={mode === 'phone' ? 'tel' : 'email'}
-            placeholder={mode === 'phone' ? '08012345678' : 'you@example.com'}
-            error={errors.identifier?.message} {...register('identifier')} />
-          <Input label="Password" type="password" placeholder="At least 6 characters"
+          <Input label="Phone Number" type="tel" placeholder="08012345678"
+            error={errors.phone?.message} {...register('phone')} />
+          <Input label="Email Address" type="email" placeholder="you@example.com"
+            error={errors.email?.message} {...register('email')} />
+          <Input label="Password" type="password" placeholder="At least 8 characters"
             error={errors.password?.message} {...register('password')} />
+          <Input label="Confirm Password" type="password" placeholder="Re-enter your password"
+            suffix={confirmSuffix}
+            hint={passwordsMatch ? 'Passwords match' : undefined}
+            error={errors.confirmPassword?.message} {...register('confirmPassword')} />
           {serverError && <p className="text-[14px] text-ios-red text-center">{serverError}</p>}
-          <Button type="submit" fullWidth loading={isSubmitting} className="mt-2">Continue</Button>
+          <Button type="submit" fullWidth loading={isSubmitting} disabled={!passwordsMatch} className="mt-2">Continue</Button>
         </form>
 
         <p className="text-center text-[13px] text-gray-400 mt-6">

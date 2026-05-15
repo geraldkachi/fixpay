@@ -1,59 +1,69 @@
 import { createBrowserRouter, RouterProvider, Navigate, Outlet, useLocation } from 'react-router-dom'
-import { useEffect } from 'react'
+import { DevModeToggle } from '@/components/DevModeToggle'
+import { lazy, Suspense, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { useTenantStore } from '@/store/tenant.store'
 import { useAuthStore } from '@/store/auth.store'
-import type { TenantConfig } from '@/types'
+import type { TenantConfig, ApiResponse } from '@/types'
 
-// Layout
+// Layout (eager — always rendered, tiny)
 import { AppShell } from '@/components/layout/AppShell'
 
 // Auth
-import { SplashScreen }      from '@/modules/auth/SplashScreen'
-import { WelcomeScreen }     from '@/modules/auth/WelcomeScreen'
-import { RegisterScreen }    from '@/modules/auth/RegisterScreen'
-import { LoginScreen }       from '@/modules/auth/LoginScreen'
-import { OtpScreen }         from '@/modules/auth/OtpScreen'
-import { CreatePinScreen }   from '@/modules/auth/CreatePinScreen'
+const SplashScreen       = lazy(() => import('@/modules/auth/SplashScreen').then(m => ({ default: m.SplashScreen })))
+const WelcomeScreen      = lazy(() => import('@/modules/auth/WelcomeScreen').then(m => ({ default: m.WelcomeScreen })))
+const RegisterScreen     = lazy(() => import('@/modules/auth/RegisterScreen').then(m => ({ default: m.RegisterScreen })))
+const LoginScreen        = lazy(() => import('@/modules/auth/LoginScreen').then(m => ({ default: m.LoginScreen })))
+const OtpScreen          = lazy(() => import('@/modules/auth/OtpScreen').then(m => ({ default: m.OtpScreen })))
+const CreatePinScreen    = lazy(() => import('@/modules/auth/CreatePinScreen').then(m => ({ default: m.CreatePinScreen })))
 
 // KYC
-import { KycStepper }        from '@/modules/kyc/KycStepper'
+const KycStepper = lazy(() => import('@/modules/kyc/KycStepper').then(m => ({ default: m.KycStepper })))
 
 // Home
-import { HomeScreen }        from '@/modules/home/HomeScreen'
+const HomeScreen = lazy(() => import('@/modules/home/HomeScreen').then(m => ({ default: m.HomeScreen })))
 
 // Payments
-import { PaymentsScreen }    from '@/modules/payments/PaymentsScreen'
-import { AirtimeScreen }     from '@/modules/payments/AirtimeScreen'
-import { DataScreen }        from '@/modules/payments/DataScreen'
-import { TvScreen }          from '@/modules/payments/TvScreen'
-import { ElectricityScreen } from '@/modules/payments/ElectricityScreen'
-import { EducationScreen }   from '@/modules/payments/EducationScreen'
-import { InsuranceScreen }   from '@/modules/payments/InsuranceScreen'
-import { ReceiptScreen }     from '@/modules/payments/ReceiptScreen'
+const PaymentsScreen    = lazy(() => import('@/modules/payments/PaymentsScreen').then(m => ({ default: m.PaymentsScreen })))
+const AirtimeScreen     = lazy(() => import('@/modules/payments/AirtimeScreen').then(m => ({ default: m.AirtimeScreen })))
+const DataScreen        = lazy(() => import('@/modules/payments/DataScreen').then(m => ({ default: m.DataScreen })))
+const TvScreen          = lazy(() => import('@/modules/payments/TvScreen').then(m => ({ default: m.TvScreen })))
+const ElectricityScreen = lazy(() => import('@/modules/payments/ElectricityScreen').then(m => ({ default: m.ElectricityScreen })))
+const EducationScreen   = lazy(() => import('@/modules/payments/EducationScreen').then(m => ({ default: m.EducationScreen })))
+const InsuranceScreen   = lazy(() => import('@/modules/payments/InsuranceScreen').then(m => ({ default: m.InsuranceScreen })))
+const ReceiptScreen     = lazy(() => import('@/modules/payments/ReceiptScreen').then(m => ({ default: m.ReceiptScreen })))
 
 // Send
-import { SendScreen }        from '@/modules/send/SendScreen'
+const SendScreen = lazy(() => import('@/modules/send/SendScreen').then(m => ({ default: m.SendScreen })))
 
 // Wallet
-import { WalletScreen }            from '@/modules/wallet/WalletScreen'
-import { FundWalletScreen }        from '@/modules/wallet/FundWalletScreen'
-import { TransactionDetailScreen } from '@/modules/wallet/TransactionDetailScreen'
+const WalletScreen            = lazy(() => import('@/modules/wallet/WalletScreen').then(m => ({ default: m.WalletScreen })))
+const FundWalletScreen        = lazy(() => import('@/modules/wallet/FundWalletScreen').then(m => ({ default: m.FundWalletScreen })))
+const TransactionDetailScreen = lazy(() => import('@/modules/wallet/TransactionDetailScreen').then(m => ({ default: m.TransactionDetailScreen })))
 
 // More
-import { MoreScreen }           from '@/modules/more/MoreScreen'
-import { ProfileScreen }        from '@/modules/more/ProfileScreen'
-import { SecurityScreen }       from '@/modules/more/SecurityScreen'
-import { MandatesScreen }       from '@/modules/more/MandatesScreen'
-import { DisputesScreen }       from '@/modules/more/DisputesScreen'
-import { DisputeDetailScreen }  from '@/modules/more/DisputeDetailScreen'
+const MoreScreen          = lazy(() => import('@/modules/more/MoreScreen').then(m => ({ default: m.MoreScreen })))
+const ProfileScreen       = lazy(() => import('@/modules/more/ProfileScreen').then(m => ({ default: m.ProfileScreen })))
+const SecurityScreen      = lazy(() => import('@/modules/more/SecurityScreen').then(m => ({ default: m.SecurityScreen })))
+const MandatesScreen      = lazy(() => import('@/modules/more/MandatesScreen').then(m => ({ default: m.MandatesScreen })))
+const DisputesScreen      = lazy(() => import('@/modules/more/DisputesScreen').then(m => ({ default: m.DisputesScreen })))
+const DisputeDetailScreen = lazy(() => import('@/modules/more/DisputeDetailScreen').then(m => ({ default: m.DisputeDetailScreen })))
+const PortalLaunchpadScreen = lazy(() => import('@/modules/dev/PortalLaunchpadScreen').then(m => ({ default: m.PortalLaunchpadScreen })))
 
 // ─── Guards ────────────────────────────────────────────────────────────────
 
 function RequireAuth() {
-  const { isAuthenticated, kycCompleted, pinCreated } = useAuthStore()
+  const { isAuthenticated, kycCompleted, pinCreated, _hasHydrated } = useAuthStore()
   const { pathname } = useLocation()
+
+  // In dev, root opens the launchpad so engineers can jump between apps quickly.
+  if (import.meta.env.DEV && pathname === '/') return <Navigate to="/dev/launchpad" replace />
+
+  // Block all routing decisions until Zustand has rehydrated from localStorage.
+  // Without this guard, the first render (with default false values) causes a
+  // flash-redirect to /auth/login before the real persisted state is applied.
+  if (!_hasHydrated) return null
 
   // Always show splash on first page load of a new browser session
   if (!sessionStorage.getItem('splash_shown')) {
@@ -72,7 +82,8 @@ function TenantLoader() {
   const { setConfig } = useTenantStore()
   const { data } = useQuery<TenantConfig>({
     queryKey: ['tenant-config'],
-    queryFn: () => api.get<TenantConfig>('/tenant/config').then(r => r.data),
+    // Backend wraps response in ApiResponse<TenantConfig> — unwrap with .data.data
+    queryFn: () => api.get<ApiResponse<TenantConfig>>('/tenant/config').then(r => r.data.data),
     staleTime: Infinity,
   })
   useEffect(() => { if (data) setConfig(data) }, [data, setConfig])
@@ -82,13 +93,14 @@ function TenantLoader() {
 // ─── Router ───────────────────────────────────────────────────────────────
 
 const router = createBrowserRouter([
+  ...(import.meta.env.DEV ? [{ path: '/dev/launchpad', element: <PortalLaunchpadScreen /> }] : []),
   { path: '/splash',         element: <SplashScreen /> },
   { path: '/welcome',        element: <WelcomeScreen /> },
   { path: '/auth/register',  element: <RegisterScreen /> },
   { path: '/auth/login',     element: <LoginScreen /> },
   { path: '/auth/otp',       element: <OtpScreen /> },
   { path: '/auth/pin',       element: <CreatePinScreen /> },
-  {
+{
     path: '/',
     element: <RequireAuth />,
     children: [
@@ -127,11 +139,18 @@ const router = createBrowserRouter([
 
 // ─── App ──────────────────────────────────────────────────────────────────
 
+const PageLoader = () => (
+  <div className="flex items-center justify-center h-screen">
+    <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+  </div>
+)
+
 export default function App() {
   return (
-    <>
+    <Suspense fallback={<PageLoader />}>
       <TenantLoader />
       <RouterProvider router={router} />
-    </>
+      <DevModeToggle />
+    </Suspense>
   )
 }

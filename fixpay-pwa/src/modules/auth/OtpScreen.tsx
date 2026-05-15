@@ -14,20 +14,29 @@ export function OtpScreen() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const identifier = pendingPhone ?? pendingEmail ?? 'your number'
+  const email = pendingEmail ?? ''
+  const display = email || (pendingPhone ?? 'your email')
 
   const handleVerify = async () => {
     if (otp.length < 6) { setError('Enter the 6-digit code'); return }
     setError(''); setLoading(true)
     try {
-      const res = await api.post<{ accessToken: string; user: User }>('/auth/verify-otp', { otp, identifier: pendingPhone ?? pendingEmail })
-      setToken(res.data.accessToken)
-      setUser(res.data.user)
-      if (!pinCreated) navigate('/auth/pin', { replace: true })
-      else if (!kycCompleted) navigate('/kyc', { replace: true })
-      else navigate('/home', { replace: true })
+      const res = await api.post('/auth/verify-otp', { email, otp })
+      // Backend wraps in ApiResponse; MSW mocks return the flat payload
+      const payload: { accessToken?: string; user?: User } = res.data.data ?? res.data
+      if (payload.accessToken && payload.user) {
+        // Mock mode returns token directly — continue to pin/kyc/home
+        setToken(payload.accessToken)
+        setUser(payload.user)
+        if (!pinCreated) navigate('/auth/pin', { replace: true })
+        else if (!kycCompleted) navigate('/kyc', { replace: true })
+        else navigate('/home', { replace: true })
+      } else {
+        // Live mode — email verified, now sign in
+        navigate('/auth/login', { replace: true, state: { verified: true } })
+      }
     } catch {
-      setError('Incorrect OTP. Try again.')
+      setError('Incorrect or expired OTP. Try again.')
     } finally {
       setLoading(false)
     }
@@ -35,13 +44,10 @@ export function OtpScreen() {
 
   return (
     <div className="flex flex-col h-[100dvh] bg-[#F2F2F7]">
-      <PageHeader title="Verify OTP" onBack="default" />
+      <PageHeader title="Verify Email" onBack="default" />
       <div className="flex-1 flex flex-col items-center px-6 pt-8 gap-6 animate-slide-up">
         <p className="text-[15px] text-gray-500 text-center">
-          Enter the 6-digit code sent to <strong className="text-gray-900">{identifier}</strong>
-        </p>
-        <p className="text-[13px] bg-blue-50 text-blue-700 rounded-[10px] px-3 py-2 text-center">
-          Demo hint: use <strong>123456</strong>
+          Enter the 6-digit code sent to <strong className="text-gray-900">{display}</strong>
         </p>
         <OTPInput length={6} value={otp} onChange={setOtp} autoFocus />
         {error && <p className="text-[14px] text-ios-red text-center">{error}</p>}
