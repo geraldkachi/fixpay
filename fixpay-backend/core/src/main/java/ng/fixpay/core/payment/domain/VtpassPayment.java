@@ -179,4 +179,15 @@ public class VtpassPayment {
         this.providerMessage = providerMessage;
         this.externalReference = externalReference;
     }
+
+    public void markTimedOut(int timeoutSeconds) {
+        this.paymentStatus = "failed";
+        this.providerStatus = "payment_timeout";
+        this.providerCode = "TIMEOUT";
+        this.providerMessage = "Payment timed out after " + timeoutSeconds + " seconds with no provider response.";
+    }
+
+    public boolean isInTerminalStatus() {
+        return "completed".equals(this.paymentStatus) || "failed".equals(this.paymentStatus);
+    }
 }

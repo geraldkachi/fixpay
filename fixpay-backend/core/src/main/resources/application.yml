@@ -97,6 +97,14 @@ fixpay:
     base-url: ${MANDATE_BASE_URL:https://sandbox.nibss.local}
     api-key: ${MANDATE_API_KEY:}
     secret-key: ${MANDATE_SECRET_KEY:}
+  payment:
+    # Hard timeout for pending payments. Any payment that stays in a non-terminal status beyond
+    # this threshold is permanently failed by the scheduler. Platform admins can adjust this at
+    # runtime via PUT /api/admin/settings/payment-timeout (range 1–3600s).
+    timeout-seconds: ${PAYMENT_TIMEOUT_SECONDS:60}
+    # How often the timeout scanner runs (milliseconds). Adjust lower for tighter deadline
+    # enforcement at the cost of slightly more DB reads.
+    timeout-check-interval-ms: ${PAYMENT_TIMEOUT_CHECK_INTERVAL_MS:10000}
 
   # Payment rail: circuit breaker defaults (all overridable per-processor via config_json)
   rail:

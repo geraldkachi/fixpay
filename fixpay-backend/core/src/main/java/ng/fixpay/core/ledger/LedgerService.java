@@ -161,6 +161,42 @@ public class LedgerService {
 
     // ─── Internal helpers ─────────────────────────────────────────────────────
 
+    /**
+     * Reverses a previous debit by looking up the wallet directly from {@code userId}.
+     *
+     * <p>Used by the payment-timeout scheduler which has the user id and amount but
+     * no longer holds the original {@link DebitResult}.
+     *
+     * @param userId    wallet owner whose balance should be restored
+     * @param amount    positive amount to return to the wallet
+     * @param reference the payment reference for audit linkage
+     * @param reason    human-readable reason (e.g. "Payment timeout after 60s")
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void reverseByUser(UUID userId, BigDecimal amount, String reference, String reason) {
+        Wallet wallet = requireWallet(userId);
+
+        BigDecimal reversedBalance = wallet.getBalance().add(amount);
+        String correlationId = reference + "-REVERSAL";
+
+        wallet.setBalance(reversedBalance);
+        wallet.setLedgerBalance(wallet.getLedgerBalance().add(amount));
+
+        // CREDIT leg — returns funds to user wallet
+        ledgerRepository.save(new LedgerEntry(
+                wallet.getId(), userId, wallet.getTenantId(),
+                correlationId, EntryType.CREDIT,
+                amount, reversedBalance, "NGN", reference, "Reversal: " + reason
+        ));
+
+        // DEBIT leg — removes from "payments payable"
+        ledgerRepository.save(new LedgerEntry(
+                wallet.getId(), userId, wallet.getTenantId(),
+                correlationId, EntryType.DEBIT,
+                amount, reversedBalance, "NGN", reference, "Payments payable reversal: " + reason
+        ));
+    }
+
     private Wallet requireWallet(UUID userId) {
         return walletRepository.findByUserIdAndCurrency(userId, "NGN")
                 .orElseThrow(() -> FixPayException.notFound("Wallet"));

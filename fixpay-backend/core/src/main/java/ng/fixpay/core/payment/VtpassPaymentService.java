@@ -50,9 +50,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class VtpassPaymentService {
+
+    private static final Logger log = LoggerFactory.getLogger(VtpassPaymentService.class);
 
     private final UserRepository userRepository;
     private final VtpassPaymentRepository paymentRepository;
@@ -415,6 +419,15 @@ public class VtpassPaymentService {
 
         VtpassPayment payment = paymentRepository.findByPaymentReference(request.paymentReference())
                 .orElseThrow(() -> FixPayException.notFound("Payment"));
+
+        // Reject late callbacks for payments already in a terminal state (completed or failed).
+        // This handles the case where the timeout scheduler has already permanently failed the
+        // payment before the provider's delayed callback arrives.
+        if (payment.isInTerminalStatus()) {
+            log.warn("processWebhook: ignoring late callback for payment {} — already in terminal status '{}'",
+                    payment.getPaymentReference(), payment.getPaymentStatus());
+            return toStatusResponse(payment);
+        }
 
         String status = request.providerStatus() == null ? "" : request.providerStatus().toLowerCase();
         String externalRef = request.providerRequestId() == null || request.providerRequestId().isBlank()
