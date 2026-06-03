@@ -73,6 +73,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/auth/refresh").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/logout").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/payments/vtpass/webhook").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/webhooks/paystack/transfer").permitAll()
                 .requestMatchers("/api/health", "/api/version").permitAll()
                 .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                 // Self-service portal registration — fully public

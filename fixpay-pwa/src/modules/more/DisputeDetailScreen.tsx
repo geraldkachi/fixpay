@@ -11,7 +11,7 @@ export function DisputeDetailScreen() {
   const { id } = useParams<{ id: string }>()
   const { data: dispute, isLoading } = useQuery<Dispute>({
     queryKey: ['disputes', id],
-    queryFn: () => api.get<Dispute>(`/disputes/${id}`).then(r => r.data),
+    queryFn: () => api.get(`/disputes/${id}`).then(r => (r.data.data ?? r.data) as Dispute),
     enabled: !!id,
   })
 

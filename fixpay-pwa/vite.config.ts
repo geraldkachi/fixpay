@@ -46,6 +46,8 @@ export default defineConfig(({ command }) => ({
     alias: { '@': path.resolve(__dirname, './src') },
   },
   server: {
+    port: 5273,
+    host: true,
     proxy: {
       '/api': { target: 'http://localhost:8081', changeOrigin: true },
       '/tenant': { target: 'http://localhost:8081', changeOrigin: true },

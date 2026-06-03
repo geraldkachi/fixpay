@@ -42,7 +42,7 @@ export function SendScreen() {
 
   const { data: banks = [], isLoading: banksLoading } = useQuery<NipBank[]>({
     queryKey: ['banks'],
-    queryFn: () => api.get<NipBank[]>('/transfers/banks').then(r => r.data),
+    queryFn: () => api.get('/transfers/banks').then(r => (r.data.data ?? r.data) as NipBank[]),
     staleTime: 10 * 60_000,
   })
 
@@ -64,8 +64,8 @@ export function SendScreen() {
     if (!bCode) { setEnquiryError('Select a bank first'); return }
     setEnquiring(true); setEnquiryError(''); setNameEnquiry(null)
     try {
-      const res = await api.post<NameEnquiry>('/transfers/verify-account', { accountNumber: acct, bankCode: bCode })
-      setNameEnquiry(res.data)
+      const res = await api.post('/transfers/verify-account', { accountNumber: acct, bankCode: bCode })
+      setNameEnquiry(res.data.data ?? res.data)
     } catch {
       setEnquiryError('Could not verify account. (Demo: try 0123456789 or 1234567890)')
     } finally { setEnquiring(false) }

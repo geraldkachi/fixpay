@@ -11,7 +11,7 @@ export function DisputesScreen() {
   const navigate = useNavigate()
   const { data, isLoading } = useQuery({
     queryKey: ['disputes'],
-    queryFn: () => api.get<{ content: Dispute[] }>('/disputes').then(r => r.data),
+    queryFn: () => api.get('/disputes').then(r => (r.data.data ?? r.data) as { content: Dispute[] }),
   })
   const disputes = data?.content ?? []
 
