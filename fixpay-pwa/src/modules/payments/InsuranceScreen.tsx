@@ -113,7 +113,9 @@ export function InsuranceScreen() {
         navigate('/payments/receipt', { state: statePayload })
       }
     } catch (err: any) {
-      const serverMsg = err?.response?.data?.message || 'Incorrect PIN or payment failed. Try again.'
+      const code = err?.response?.data?.vtpass_code || err?.response?.data?.provider_code
+      const outcome = resolveVtpassCode(code)
+      const serverMsg = err?.response?.data?.message || (code ? `${outcome.message} (${code})` : 'Incorrect PIN or payment failed. Try again.')
       setPinError(serverMsg)
       setPin('')
       setSubmitting(false)

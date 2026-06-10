@@ -131,6 +131,9 @@ class VtpassPaymentController extends Controller
             'units' => $payment->units,
             'amount_kobo' => $payment->amount_kobo,
             'fee_kobo' => $payment->fee_kobo,
+            'provider_code' => $payment->provider_code,
+            'vtpass_code' => $payment->provider_code,
+            'message' => $payment->payment_status === 'FAILED' ? ($payment->response_payload['response_description'] ?? 'Transaction failed.') : null,
         ], $payment->payment_status === 'COMPLETED' ? 200 : 422);
     }
 
@@ -149,6 +152,8 @@ class VtpassPaymentController extends Controller
             'status' => $payment->payment_status,
             'token' => $payment->token,
             'units' => $payment->units,
+            'provider_code' => $payment->provider_code,
+            'vtpass_code' => $payment->provider_code,
             'completed_at' => $payment->completed_at,
             'failed_at' => $payment->failed_at,
         ]);
