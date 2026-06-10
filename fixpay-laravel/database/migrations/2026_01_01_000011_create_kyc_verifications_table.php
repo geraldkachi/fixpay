@@ -9,7 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('kyc_verifications', function (Blueprint $table) {
-            $table->uuid('id')->primary()->default(DB::raw('gen_random_uuid()'));
+            $table->uuid('id')->primary()->default(config('database.default') === 'sqlite' ? null : \Illuminate\Support\Facades\DB::raw('gen_random_uuid()'));
             $table->uuid('user_id')->index();
             $table->enum('type', ['BVN', 'NIN', 'CAC', 'SELFIE', 'AML_PEP', 'AML_SANCTIONS']);
             $table->string('identifier')->nullable(); // the BVN/NIN number (hashed for PII)

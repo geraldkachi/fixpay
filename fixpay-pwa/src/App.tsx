@@ -80,11 +80,20 @@ function RequireAuth() {
 
 function TenantLoader() {
   const { setConfig } = useTenantStore()
+  const tenantSlug = localStorage.getItem('tenant_slug')
   const { data } = useQuery<TenantConfig>({
-    queryKey: ['tenant-config'],
-    // Backend wraps response in ApiResponse<TenantConfig> — unwrap with .data.data
-    queryFn: () => api.get<ApiResponse<TenantConfig>>('/tenant/config').then(r => r.data.data),
-    staleTime: Infinity,
+    queryKey: ['tenant-config', tenantSlug],
+    queryFn: () =>
+      api
+        .get<ApiResponse<TenantConfig>>('/tenant/config', {
+          // Pass server-authoritative slug — set at login from user.tenant_id FK.
+          // Pre-login (null) → backend returns safe FixPay defaults.
+          headers: tenantSlug ? { 'X-Tenant-Slug': tenantSlug } : {},
+        })
+        .then(r => r.data.data),
+    // 5 min staleTime: catches suspended tenants promptly without hammering the endpoint
+    staleTime: 5 * 60 * 1000,
+    retry: false, // Don't retry on 404 — pre-login 404 would be a backend regression
   })
   useEffect(() => { if (data) setConfig(data) }, [data, setConfig])
   return null

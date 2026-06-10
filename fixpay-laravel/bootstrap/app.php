@@ -18,6 +18,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'api.key' => \App\Http\Middleware\ApiKeyMiddleware::class,
             'tenant' => \App\Http\Middleware\TenantContextMiddleware::class,
             'ip.whitelist' => \App\Http\Middleware\IpWhitelistMiddleware::class,
+            'idempotent' => \App\Http\Middleware\IdempotencyMiddleware::class,
+            'admin' => \App\Http\Middleware\AdminMiddleware::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

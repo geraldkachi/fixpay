@@ -13,6 +13,7 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { BottomSheet } from '@/components/ui/BottomSheet'
+import { useTransactionStore } from '@/store/transaction.store'
 import { PinPad } from '@/components/ui/PinPad'
 import { Spinner } from '@/components/ui/Spinner'
 
@@ -40,7 +41,7 @@ export function TvScreen() {
   const [verifying, setVerifying] = useState(false)
   const [verifyError, setVerifyError] = useState('')
   const [pending, setPending] = useState<FormData | null>(null)
-  const [submitting, setSubmitting] = useState(false)
+  const { isProcessing, startProcessing, stopProcessing } = useTransactionStore()
 
   const { register, handleSubmit, setValue, watch, formState: { errors }, getValues } = useForm<FormData>({
     resolver: zodResolver(schema) as Resolver<FormData>,
@@ -73,8 +74,8 @@ export function TvScreen() {
 
   const handlePinChange = async (val: string) => {
     setPin(val); setPinError('')
-    if (val.length < 6 || !pending || submitting) return
-    setSubmitting(true)
+    if (val.length < 4 || !pending || isProcessing) return
+    startProcessing()
     try {
       await authService.verifyPin(val)
       const amount = subscriptionType === 'renew'
@@ -84,11 +85,13 @@ export function TvScreen() {
       queryClient.invalidateQueries({ queryKey: ['wallet'] })
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
       navigate('/payments/receipt', {
-        state: { type: 'tv', provider: serviceId, customerName: verifyResult?.customerName, smartcard: pending.billersCode, package: chosen?.name ?? 'Renewal', amount, requestId: res.requestId, date: res.transaction_date },
+        state: { type: 'tv', provider: serviceId, customerName: verifyResult?.customerName, smartcard: pending.billersCode, package: chosen?.name ?? 'Renewal', amount_kobo: res.amount_kobo, requestId: res.payment_reference, date: new Date().toISOString() },
       })
     } catch {
       setPinError('Incorrect PIN or payment failed.')
-      setPin(''); setSubmitting(false)
+      setPin('')
+    } finally {
+      stopProcessing()
     }
   }
 
@@ -169,7 +172,7 @@ export function TvScreen() {
             </div>
           )}
 
-          <Button type="submit" fullWidth className="mt-2" disabled={!isShowMax && !verifyResult}>
+          <Button type="submit" fullWidth className="mt-2" disabled={(!isShowMax && !verifyResult) || isProcessing}>
             {isShowMax && chosen
               ? `Pay ₦${parseFloat(chosen.variationAmount).toLocaleString()}`
               : verifyResult && subscriptionType === 'renew'
@@ -179,9 +182,9 @@ export function TvScreen() {
         </form>
       </div>
 
-      <BottomSheet open={showPin} onClose={() => setShowPin(false)} title="Enter PIN" dismissible={!submitting}>
+      <BottomSheet open={showPin} onClose={() => setShowPin(false)} title="Enter PIN" dismissible={!isProcessing}>
         <div className="px-2 pt-2 pb-4">
-          <PinPad value={pin} onChange={handlePinChange} error={pinError} disabled={submitting} />
+          <PinPad value={pin} onChange={handlePinChange} error={pinError} disabled={isProcessing} />
         </div>
       </BottomSheet>
     </div>

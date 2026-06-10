@@ -9,7 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('api_keys', function (Blueprint $table) {
-            $table->uuid('id')->primary()->default(DB::raw('gen_random_uuid()'));
+            $table->uuid('id')->primary()->default(config('database.default') === 'sqlite' ? null : \Illuminate\Support\Facades\DB::raw('gen_random_uuid()'));
             $table->uuid('tenant_id')->index();
             $table->string('name');
             $table->enum('environment', ['TEST', 'LIVE'])->default('TEST');
@@ -26,7 +26,7 @@ return new class extends Migration
         });
 
         Schema::create('webhook_endpoints', function (Blueprint $table) {
-            $table->uuid('id')->primary()->default(DB::raw('gen_random_uuid()'));
+            $table->uuid('id')->primary()->default(config('database.default') === 'sqlite' ? null : \Illuminate\Support\Facades\DB::raw('gen_random_uuid()'));
             $table->uuid('tenant_id')->index();
             $table->string('url');
             $table->jsonb('events'); // array of event types
@@ -41,7 +41,7 @@ return new class extends Migration
         });
 
         Schema::create('ip_whitelist_rules', function (Blueprint $table) {
-            $table->uuid('id')->primary()->default(DB::raw('gen_random_uuid()'));
+            $table->uuid('id')->primary()->default(config('database.default') === 'sqlite' ? null : \Illuminate\Support\Facades\DB::raw('gen_random_uuid()'));
             $table->uuid('tenant_id')->index();
             $table->string('ip_cidr', 50);
             $table->string('label')->nullable();
@@ -53,7 +53,7 @@ return new class extends Migration
         });
 
         Schema::create('settlement_accounts', function (Blueprint $table) {
-            $table->uuid('id')->primary()->default(DB::raw('gen_random_uuid()'));
+            $table->uuid('id')->primary()->default(config('database.default') === 'sqlite' ? null : \Illuminate\Support\Facades\DB::raw('gen_random_uuid()'));
             $table->uuid('tenant_id')->unique()->index();
             $table->string('bank_code', 10);
             $table->string('bank_name');

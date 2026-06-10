@@ -14,7 +14,7 @@ interface PinPadProps {
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'del'] as const
 
-export function PinPad({ value, onChange, maxLength = 6, label, hint, error, disabled }: PinPadProps) {
+export function PinPad({ value, onChange, maxLength = 4, label, hint, error, disabled }: PinPadProps) {
   const submitted = useRef(false)
 
   const handleKey = useCallback((key: string) => {

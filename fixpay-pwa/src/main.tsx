@@ -10,6 +10,27 @@ import './index.css'
 // so even reloads within the same tab show the splash.
 sessionStorage.removeItem('splash_shown')
 
+// ── One-time migration ────────────────────────────────────────────────────
+// If the user already has a verified account in localStorage but kycCompleted
+// is false (stale state from before the login fix), auto-correct it so they
+// don't get stuck in the KYC flow on every app start.
+try {
+  const raw = localStorage.getItem('fixpay-auth')
+  if (raw) {
+    const stored = JSON.parse(raw)
+    const state = stored?.state
+    if (state?.isAuthenticated && state?.user?.kycStatus === 'VERIFIED') {
+      let dirty = false
+      if (!state.kycCompleted) { state.kycCompleted = true; dirty = true }
+      // pin_hash cannot be inferred here without a server round-trip, but
+      // if the user landed on Home successfully before, pinCreated must be true.
+      if (state.isAuthenticated && !state.pinCreated) { state.pinCreated = true; dirty = true }
+      if (dirty) localStorage.setItem('fixpay-auth', JSON.stringify(stored))
+    }
+  }
+} catch { /* ignore — corrupt storage will be wiped on next login */ }
+
+
 async function prepare() {
   if (import.meta.env.DEV && 'serviceWorker' in navigator) {
     // Remove any stale Workbox/VitePWA service workers so they don't block MSW.

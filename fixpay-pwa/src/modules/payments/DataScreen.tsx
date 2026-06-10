@@ -12,6 +12,7 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { BottomSheet } from '@/components/ui/BottomSheet'
+import { useTransactionStore } from '@/store/transaction.store'
 import { PinPad } from '@/components/ui/PinPad'
 import { Spinner } from '@/components/ui/Spinner'
 
@@ -39,7 +40,7 @@ export function DataScreen() {
   const [pin, setPin] = useState('')
   const [pinError, setPinError] = useState('')
   const [pending, setPending] = useState<FormData | null>(null)
-  const [submitting, setSubmitting] = useState(false)
+  const { isProcessing, startProcessing, stopProcessing } = useTransactionStore()
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -58,20 +59,21 @@ export function DataScreen() {
 
   const handlePinChange = async (val: string) => {
     setPin(val); setPinError('')
-    if (val.length < 6 || !pending || submitting) return
-    setSubmitting(true)
+    if (val.length < 4 || !pending || isProcessing) return
+    startProcessing()
     try {
       await authService.verifyPin(val)
       const res = await paymentsService.data(pending)
       queryClient.invalidateQueries({ queryKey: ['wallet'] })
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
       navigate('/payments/receipt', {
-        state: { type: 'data', bundle: chosen?.name, phone: pending.billersCode, amount: parseFloat(chosen?.variationAmount ?? '0'), requestId: res.requestId, date: res.transaction_date },
+        state: { type: 'data', bundle: chosen?.name, network: pending.serviceId, phone: pending.billersCode, amount_kobo: res.amount_kobo, requestId: res.payment_reference, date: new Date().toISOString() },
       })
     } catch {
       setPinError('Incorrect PIN or purchase failed. Try again.')
       setPin('')
-      setSubmitting(false)
+    } finally {
+      stopProcessing()
     }
   }
 
@@ -117,15 +119,15 @@ export function DataScreen() {
             {errors.variationCode && <p className="text-ios-red text-[13px] mt-1">{errors.variationCode.message}</p>}
           </div>
 
-          <Button type="submit" fullWidth className="mt-2" disabled={!chosen}>
+          <Button type="submit" fullWidth className="mt-2" disabled={!chosen || isProcessing}>
             {chosen ? `Pay ₦${parseFloat(chosen.variationAmount).toLocaleString()}` : 'Continue'}
           </Button>
         </form>
       </div>
 
-      <BottomSheet open={showPin} onClose={() => setShowPin(false)} title="Enter PIN" dismissible={!submitting}>
+      <BottomSheet open={showPin} onClose={() => setShowPin(false)} title="Enter PIN" dismissible={!isProcessing}>
         <div className="px-2 pt-2 pb-4">
-          <PinPad value={pin} onChange={handlePinChange} error={pinError} disabled={submitting} />
+          <PinPad value={pin} onChange={handlePinChange} error={pinError} disabled={isProcessing} />
         </div>
       </BottomSheet>
     </div>

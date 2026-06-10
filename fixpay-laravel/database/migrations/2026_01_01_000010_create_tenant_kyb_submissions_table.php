@@ -9,7 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('tenant_kyb_submissions', function (Blueprint $table) {
-            $table->uuid('id')->primary()->default(DB::raw('gen_random_uuid()'));
+            $table->uuid('id')->primary()->default(config('database.default') === 'sqlite' ? null : \Illuminate\Support\Facades\DB::raw('gen_random_uuid()'));
             $table->uuid('tenant_id')->unique()->index();
             $table->string('business_name')->nullable();
             $table->string('cac_number', 30)->nullable();

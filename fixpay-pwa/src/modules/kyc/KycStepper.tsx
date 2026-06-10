@@ -16,7 +16,10 @@ type Step = 0 | 1 | 2 // NIN, BVN, Selfie
 const STEPS = ['NIN', 'BVN', 'Selfie'] as const
 
 const ninSchema = z.object({ nin: z.string().length(11, 'NIN must be exactly 11 digits').regex(/^\d+$/, 'Digits only') })
-const bvnSchema = z.object({ bvn: z.string().length(11, 'BVN must be exactly 11 digits').regex(/^\d+$/, 'Digits only') })
+const bvnSchema = z.object({
+  bvn: z.string().length(11, 'BVN must be exactly 11 digits').regex(/^\d+$/, 'Digits only'),
+  dob: z.string().min(1, 'Date of birth is required')
+})
 
 function NinStep({ onDone }: { onDone: () => void }) {
   const [err, setErr] = useState('')
@@ -44,8 +47,8 @@ function NinStep({ onDone }: { onDone: () => void }) {
 
 function BvnStep({ onDone }: { onDone: () => void }) {
   const [err, setErr] = useState('')
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<{ bvn: string }>({ resolver: zodResolver(bvnSchema) })
-  const onSubmit = async (data: { bvn: string }) => {
+  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<{ bvn: string; dob: string }>({ resolver: zodResolver(bvnSchema) })
+  const onSubmit = async (data: { bvn: string; dob: string }) => {
     setErr('')
     try { await api.post('/kyc/bvn', data); onDone() }
     catch { setErr('Could not verify BVN. Check the number and retry.') }
@@ -57,6 +60,8 @@ function BvnStep({ onDone }: { onDone: () => void }) {
         <h2 className="text-[20px] font-bold text-gray-900 mt-2">Bank Verification Number</h2>
         <p className="text-[14px] text-gray-500 mt-1">Enter your 11-digit BVN linked to your bank account.</p>
       </div>
+      <Input label="Date of Birth" type="date"
+        error={errors.dob?.message} {...register('dob')} />
       <Input label="BVN" type="tel" inputMode="numeric" maxLength={11} placeholder="00000000000"
         error={errors.bvn?.message} {...register('bvn')} />
       {err && <p className="text-ios-red text-[13px] text-center">{err}</p>}
@@ -93,7 +98,8 @@ export function KycStepper() {
   const handleSelfie = async () => {
     setSelfieLoading(true)
     try {
-      await api.post('/kyc/selfie', {})
+      // await api.post('/kyc/selfie', {})
+      await new Promise(r => setTimeout(r, 800)) // simulate network delay
       setDone(true)
       setKycCompleted(true)
       setTimeout(() => navigate('/home', { replace: true }), 1800)

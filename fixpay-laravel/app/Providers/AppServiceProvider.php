@@ -14,6 +14,7 @@ use App\Services\Transfer\TransferService;
 use App\Services\Wallet\WalletService;
 use GuzzleHttp\Client;
 use Illuminate\Support\ServiceProvider;
+use Laravel\Sanctum\Sanctum;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -58,7 +59,8 @@ class AppServiceProvider extends ServiceProvider
         // ── VTPass Service ────────────────────────────────────────────────────
         $this->app->singleton(VtpassService::class, function ($app) {
             return new VtpassService(
-                http: new Client(['timeout' => 60]),
+                // verify:false disables SSL cert check on Windows dev — sandbox only, remove for production
+                http: new Client(['timeout' => 60, 'verify' => false]),
                 walletService: $app->make(WalletService::class),
                 railService: $app->make(PaymentRailService::class),
                 apiKey: config('services.vtpass.api_key', ''),
@@ -82,6 +84,6 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        //
+        Sanctum::usePersonalAccessTokenModel(\App\Models\PersonalAccessToken::class);
     }
 }

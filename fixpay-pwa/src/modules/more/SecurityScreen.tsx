@@ -104,7 +104,7 @@ function PinChangeSheet({
   const handlePin = async (val: string) => {
     setPin(val)
     setError('')
-    if (val.length < 6) return
+    if (val.length < 4) return
 
     if (flow === 'verify-current') {
       setLoading(true)
@@ -208,7 +208,7 @@ function PinChangeSheet({
                 value={pin}
                 onChange={handlePin}
                 label={stepTitle[flow]}
-                hint={flow === 'set-new' ? "Choose a 6-digit PIN you'll remember" : undefined}
+                hint={flow === 'set-new' ? "Choose a 4-digit PIN you'll remember" : undefined}
                 error={error}
                 disabled={loading}
               />
@@ -258,7 +258,7 @@ export function SecurityScreen() {
             icon={LockClosedIcon}
             iconBg="#007AFF"
             label="Transaction PIN"
-            sub="Change your 6-digit payment PIN"
+            sub="Change your 4-digit payment PIN"
             onPress={() => setShowPinSheet(true)}
           />
           <MenuRow

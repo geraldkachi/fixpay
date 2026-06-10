@@ -19,6 +19,7 @@ class TenantContextMiddleware
             $tenant = Tenant::find($tenantId);
             if ($tenant && $tenant->status !== 'OFFBOARDED') {
                 $request->merge(['__tenant' => $tenant]);
+                $request->attributes->set('current_tenant', $tenant);
                 app()->instance('current_tenant', $tenant);
             }
         }

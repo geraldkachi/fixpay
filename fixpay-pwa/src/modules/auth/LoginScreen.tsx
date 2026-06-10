@@ -21,7 +21,7 @@ export function LoginScreen() {
   const navigate = useNavigate()
   const location = useLocation()
   const verified = (location.state as { verified?: boolean } | null)?.verified === true
-  const { setToken, setUser } = useAuthStore()
+  const { setToken, setUser, setPinCreated, setKycCompleted } = useAuthStore()
   const [serverError, setServerError] = useState('')
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
@@ -32,18 +32,50 @@ export function LoginScreen() {
   const onSubmit = async (data: FormData) => {
     setServerError('')
     try {
-      const isPhone = /^0[789]\d{9}$/.test(data.identifier)
       const res = await api.post('/auth/login', {
-        [isPhone ? 'phone' : 'email']: data.identifier,
+        identifier: data.identifier,
         password: data.password,
       })
-      // Backend wraps in ApiResponse<LoginResponse>; MSW mocks return the flat payload
-      const payload: { accessToken: string; user: User } = res.data.data ?? res.data
-      setToken(payload.accessToken)
-      setUser(payload.user)
-      const u = payload.user
-      if (!u.kycStatus || u.kycStatus === 'pending') navigate('/kyc', { replace: true })
-      else navigate('/home', { replace: true })
+      // Backend returns { access_token, token_type, expires_in, user }
+      // MSW mocks may return camelCase — support both
+      const raw = res.data.data ?? res.data
+      const accessToken: string = raw.access_token ?? raw.accessToken
+      // Normalize snake_case backend fields → camelCase User type
+      const rawUser = raw.user
+      const user: User = {
+        id:        rawUser.id,
+        phone:     rawUser.phone,
+        email:     rawUser.email,
+        firstName: rawUser.first_name ?? rawUser.firstName,
+        lastName:  rawUser.last_name  ?? rawUser.lastName,
+        tier:      rawUser.tier,
+        kycStatus: rawUser.kyc_status ?? rawUser.kycStatus,
+        createdAt: rawUser.created_at ?? rawUser.createdAt,
+      }
+      setToken(accessToken)
+      setUser(user)
+
+      // Derive auth flags from server-authoritative values — never trust stale localStorage.
+      const hasPinFromServer: boolean = raw.has_pin === true
+      const isKycVerified = user.kycStatus === 'VERIFIED'
+      setPinCreated(hasPinFromServer)
+      setKycCompleted(isKycVerified)
+
+      // Store the server-resolved tenant slug (from user.tenant_id FK).
+      // This is authoritative — the client cannot forge it.
+      // null means the user is a platform user with no tenant.
+      const tenantSlug: string | null = raw.tenant_slug ?? null
+      if (tenantSlug) {
+        localStorage.setItem('tenant_slug', tenantSlug)
+      } else {
+        localStorage.removeItem('tenant_slug')
+      }
+      localStorage.setItem('fixpay_onboarded', '1')
+
+      // Route based on what the user still needs to complete
+      if (hasPinFromServer && isKycVerified) navigate('/home', { replace: true })
+      else if (!hasPinFromServer)            navigate('/auth/pin', { replace: true })
+      else                                   navigate('/kyc', { replace: true })
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
       setServerError(msg ?? 'Invalid credentials. Try again.')

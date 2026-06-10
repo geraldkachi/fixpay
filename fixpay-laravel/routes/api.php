@@ -15,6 +15,7 @@ use App\Http\Controllers\Portal\PortalRegistrationController;
 use App\Http\Controllers\Portal\SettlementController;
 use App\Http\Controllers\Portal\TenantPortalController;
 use App\Http\Controllers\Portal\WebhookController;
+use App\Http\Controllers\Tenant\TenantConfigController;
 use App\Http\Controllers\Transfer\PaystackWebhookController;
 use App\Http\Controllers\Transfer\TransferController;
 use App\Http\Controllers\User\KycController;
@@ -23,6 +24,10 @@ use App\Http\Controllers\Wallet\WalletController;
 use Illuminate\Support\Facades\Route;
 
 // ── Public routes ─────────────────────────────────────────────────────────
+
+// Tenant branding config — public, rate-limited, returns only safe branding data.
+// Unknown slugs return an opaque 404. No UUIDs or financial data exposed.
+Route::middleware('throttle:30,1')->get('tenant/config', [TenantConfigController::class, 'show']);
 
 Route::prefix('auth')->group(function () {
     Route::post('register', [AuthController::class, 'register']);
@@ -71,15 +76,15 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::prefix('payments')->group(function () {
         Route::get('vtpass/services', [VtpassPaymentController::class, 'services']);
         Route::get('vtpass/variations', [VtpassPaymentController::class, 'variations']);
-        Route::post('vtpass', [VtpassPaymentController::class, 'pay']);
+        Route::post('vtpass', [VtpassPaymentController::class, 'pay'])->middleware('idempotent');
         Route::get('vtpass/{reference}', [VtpassPaymentController::class, 'status']);
     });
 
     // Transfers
     Route::prefix('transfers')->group(function () {
         Route::get('/', [TransferController::class, 'index']);
-        Route::post('bank', [TransferController::class, 'toBank']);
-        Route::post('wallet', [TransferController::class, 'toWallet']);
+        Route::post('bank', [TransferController::class, 'toBank'])->middleware('idempotent');
+        Route::post('wallet', [TransferController::class, 'toWallet'])->middleware('idempotent');
         Route::get('{reference}', [TransferController::class, 'status']);
     });
 
@@ -135,8 +140,7 @@ Route::prefix('portal')->middleware(['api.key', 'tenant', 'ip.whitelist'])->grou
 });
 
 // ── Admin routes (Sanctum + role guard) ──────────────────────────────────
-Route::prefix('admin')->middleware(['auth:sanctum'])->group(function () {
-    // TODO: add role:admin middleware once admin users seeded
+Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function () {
 
     Route::prefix('tenants')->group(function () {
         Route::get('/', [TenantAdminController::class, 'index']);

@@ -9,7 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('vtpass_payments', function (Blueprint $table) {
-            $table->uuid('id')->primary()->default(DB::raw('gen_random_uuid()'));
+            $table->uuid('id')->primary()->default(config('database.default') === 'sqlite' ? null : \Illuminate\Support\Facades\DB::raw('gen_random_uuid()'));
             $table->uuid('user_id')->index();
             $table->uuid('wallet_id')->index();
             $table->uuid('tenant_id')->nullable()->index();
@@ -38,7 +38,7 @@ return new class extends Migration
         });
 
         Schema::create('payment_journal_entries', function (Blueprint $table) {
-            $table->uuid('id')->primary()->default(DB::raw('gen_random_uuid()'));
+            $table->uuid('id')->primary()->default(config('database.default') === 'sqlite' ? null : \Illuminate\Support\Facades\DB::raw('gen_random_uuid()'));
             $table->uuid('payment_id')->index();
             $table->string('step', 50); // INITIATED, WALLET_DEBITED, PROVIDER_CALLED, COMPLETED, FAILED
             $table->string('status', 20);

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button'
 
 interface ReceiptState {
   type: string
-  amount: number
+  amount_kobo: number   // kobo — from API response; formatCurrency expects kobo
   date: string
   requestId?: string
   // Electricity
@@ -53,7 +53,7 @@ export function ReceiptScreen() {
         {/* Amount */}
         <div className="bg-white rounded-[20px] p-5 mb-4 animate-slide-up text-center">
           <p className="text-[13px] text-gray-400 uppercase tracking-wide mb-1">Amount Paid</p>
-          <p className="text-[36px] font-black text-gray-900">{formatCurrency(r.amount * 100)}</p>
+          <p className="text-[36px] font-black text-gray-900">{formatCurrency(r.amount_kobo)}</p>
         </div>
 
         {/* ELECTRICITY TOKEN — prominent box */}

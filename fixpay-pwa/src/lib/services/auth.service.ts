@@ -38,8 +38,10 @@ export const authService = {
     api.post('/auth/pin/verify', { pin }).then(() => undefined),
 
   /**
-   * POST /auth/pin/create
+   * POST /auth/pin/set
+   * Sets the user's PIN for the first time (or resets it).
+   * Requires pin_confirmation to satisfy the backend's `confirmed` validation rule.
    */
   createPin: (pin: string): Promise<void> =>
-    api.post('/auth/pin/create', { pin }).then(() => undefined),
+    api.post('/auth/pin/set', { pin, pin_confirmation: pin }).then(() => undefined),
 }

@@ -19,7 +19,7 @@ export function CreatePinScreen() {
 
   const handlePinChange = async (val: string) => {
     setPin(val); setError('')
-    if (val.length < 6) return
+    if (val.length < 4) return
 
     if (step === 'create') {
       setFirstPin(val)
@@ -36,7 +36,7 @@ export function CreatePinScreen() {
 
     setLoading(true)
     try {
-      await api.post('/auth/pin/create', { pin: val })
+      await api.post('/auth/pin/set', { pin: val, pin_confirmation: val })
       setPinCreated(true)
       navigate(kycCompleted ? '/home' : '/kyc', { replace: true })
     } catch {
@@ -61,7 +61,7 @@ export function CreatePinScreen() {
           <PinPad
             value={pin}
             onChange={handlePinChange}
-            label={step === 'create' ? 'Create a 6-digit PIN' : 'Confirm your PIN'}
+            label={step === 'create' ? 'Create a 4-digit PIN' : 'Confirm your PIN'}
             hint={step === 'create' ? 'This PIN protects every transaction' : 'Re-enter your PIN to confirm'}
             error={error}
           />

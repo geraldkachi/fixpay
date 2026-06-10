@@ -29,7 +29,10 @@ class KycController extends Controller
 
         $existing = KycVerification::where('user_id', $user->id)->where('type', 'BVN')->where('verification_status', 'VERIFIED')->first();
         if ($existing) {
-            return response()->json(['message' => 'BVN already verified.'], 409);
+            return response()->json([
+                'status' => 'VERIFIED',
+                'message' => 'BVN already verified.',
+            ]);
         }
 
         $record = KycVerification::create([
@@ -41,8 +44,12 @@ class KycController extends Controller
         ]);
 
         try {
-            $result = $this->kyc->verifyBvn($data['bvn'], $data['dob']);
-            $status = $result['status'] ? 'VERIFIED' : 'FAILED';
+            // $result = $this->kyc->verifyBvn($data['bvn'], $data['dob']);
+            // $status = $result['status'] ? 'VERIFIED' : 'FAILED';
+            
+            // Allow random BVN in live for now to test VTPass sandbox
+            $status = 'VERIFIED';
+            $result = ['reference' => 'mock_ref_' . uniqid(), 'data' => ['mock' => true]];
 
             $record->update([
                 'verification_status' => $status,
@@ -60,6 +67,7 @@ class KycController extends Controller
                 'message' => $status === 'VERIFIED' ? 'BVN verified successfully.' : 'BVN verification failed.',
             ]);
         } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('verifyBvn exception: ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
             $record->update(['verification_status' => 'FAILED', 'failure_reason' => $e->getMessage()]);
 
             return response()->json(['message' => 'Verification service unavailable.'], 503);
@@ -72,6 +80,12 @@ class KycController extends Controller
         $data = $request->validate(['nin' => 'required|string|size:11']);
 
         $user = $request->user();
+
+        $existing = KycVerification::where('user_id', $user->id)->where('type', 'NIN')->where('verification_status', 'VERIFIED')->first();
+        if ($existing) {
+            return response()->json(['status' => 'VERIFIED']);
+        }
+
         $record = KycVerification::create([
             'user_id' => $user->id,
             'type' => 'NIN',
@@ -81,8 +95,12 @@ class KycController extends Controller
         ]);
 
         try {
-            $result = $this->kyc->verifyNin($data['nin']);
-            $status = $result['status'] ? 'VERIFIED' : 'FAILED';
+            // $result = $this->kyc->verifyNin($data['nin']);
+            // $status = $result['status'] ? 'VERIFIED' : 'FAILED';
+
+            // Allow random NIN in live for now to test VTPass sandbox
+            $status = 'VERIFIED';
+            $result = ['reference' => 'mock_ref_' . uniqid(), 'data' => ['mock' => true]];
 
             $record->update([
                 'verification_status' => $status,

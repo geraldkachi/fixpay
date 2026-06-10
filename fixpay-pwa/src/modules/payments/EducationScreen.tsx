@@ -56,7 +56,7 @@ export function EducationScreen() {
 
   const handlePinChange = async (val: string) => {
     setPin(val); setPinError('')
-    if (val.length < 6 || !pending || submitting) return
+    if (val.length < 4 || !pending || submitting) return
     setSubmitting(true)
     try {
       await authService.verifyPin(val)
@@ -65,8 +65,8 @@ export function EducationScreen() {
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
       navigate('/payments/receipt', {
         state: {
-          type: 'education', serviceId, exam: chosen?.name, amount: parseFloat(chosen?.variationAmount ?? '0'),
-          pin: res.Pin ?? res.purchased_code, requestId: res.requestId, date: res.transaction_date,
+          type: 'education', serviceId, exam: chosen?.name, amount_kobo: res.amount_kobo,
+          pin: res.Pin ?? res.purchased_code, requestId: res.payment_reference, date: new Date().toISOString(),
         },
       })
     } catch {

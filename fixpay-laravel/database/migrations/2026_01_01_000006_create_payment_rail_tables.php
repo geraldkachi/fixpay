@@ -9,7 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('payment_rail_configs', function (Blueprint $table) {
-            $table->uuid('id')->primary()->default(DB::raw('gen_random_uuid()'));
+            $table->uuid('id')->primary()->default(config('database.default') === 'sqlite' ? null : \Illuminate\Support\Facades\DB::raw('gen_random_uuid()'));
             $table->uuid('tenant_id')->nullable()->index(); // null = global default
             $table->string('payment_method', 50); // VTPASS, PAYSTACK_TRANSFER, etc.
             $table->string('processor_id', 100); // plugin/adapter identifier
@@ -24,7 +24,7 @@ return new class extends Migration
         });
 
         Schema::create('processor_fee_schedules', function (Blueprint $table) {
-            $table->uuid('id')->primary()->default(DB::raw('gen_random_uuid()'));
+            $table->uuid('id')->primary()->default(config('database.default') === 'sqlite' ? null : \Illuminate\Support\Facades\DB::raw('gen_random_uuid()'));
             $table->uuid('config_id')->index();
             $table->bigInteger('min_amount_kobo')->default(0);
             $table->bigInteger('max_amount_kobo')->nullable(); // null = no max
@@ -39,7 +39,7 @@ return new class extends Migration
         });
 
         Schema::create('payment_rail_audit_logs', function (Blueprint $table) {
-            $table->uuid('id')->primary()->default(DB::raw('gen_random_uuid()'));
+            $table->uuid('id')->primary()->default(config('database.default') === 'sqlite' ? null : \Illuminate\Support\Facades\DB::raw('gen_random_uuid()'));
             $table->string('entity_type', 50);
             $table->uuid('entity_id');
             $table->string('action', 20); // CREATE, UPDATE, DELETE

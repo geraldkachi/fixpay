@@ -88,6 +88,7 @@ class AuthController extends Controller
 
         $user = AppUser::where('email', $data['identifier'])
             ->orWhere('phone', $data['identifier'])
+            ->with('tenant')   // eager-load so tenant_slug is resolved server-side
             ->first();
 
         if (! $user || ! Hash::check($data['password'], $user->password_hash)) {
@@ -103,16 +104,22 @@ class AuthController extends Controller
 
         return response()->json([
             'access_token' => $token->plainTextToken,
-            'token_type' => 'Bearer',
-            'expires_in' => $ttl * 60,
+            'token_type'   => 'Bearer',
+            'expires_in'   => $ttl * 60,
+            // tenant_slug is resolved from the authenticated user's DB FK — not from client input.
+            // null for platform users who belong to no tenant.
+            'tenant_slug'  => $user->tenant?->slug,
+            // has_pin tells the client whether to show PIN creation or skip straight to home.
+            // Derived server-side — client cannot forge it.
+            'has_pin'      => ! is_null($user->pin_hash),
             'user' => [
-                'id' => $user->id,
-                'email' => $user->email,
-                'phone' => $user->phone,
+                'id'         => $user->id,
+                'email'      => $user->email,
+                'phone'      => $user->phone,
                 'first_name' => $user->first_name,
-                'last_name' => $user->last_name,
+                'last_name'  => $user->last_name,
                 'kyc_status' => $user->kyc_status,
-                'tier' => $user->tier,
+                'tier'       => $user->tier,
             ],
         ]);
     }

@@ -9,7 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('app_users', function (Blueprint $table) {
-            $table->uuid('id')->primary()->default(DB::raw('gen_random_uuid()'));
+            $table->uuid('id')->primary()->default(config('database.default') === 'sqlite' ? null : \Illuminate\Support\Facades\DB::raw('gen_random_uuid()'));
             $table->uuid('tenant_id')->nullable()->index();
             $table->string('phone', 20)->unique();
             $table->string('email')->unique();

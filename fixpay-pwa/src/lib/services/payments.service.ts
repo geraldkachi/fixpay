@@ -2,12 +2,13 @@ import { api } from '@/lib/api'
 import type { BillerVerify, ServiceVariation } from '@/types'
 
 export interface BillPaymentResponse {
-  requestId: string
-  transaction_date: string
-  amount: string
-  token?: string
-  units?: string
-  Pin?: string
+  payment_reference: string
+  status: string
+  amount_kobo: number    // kobo — already deducted from wallet server-side
+  fee_kobo: number
+  token?: string         // electricity prepaid token
+  units?: string         // electricity units
+  Pin?: string           // education exam PIN
   purchased_code?: string
 }
 
@@ -73,41 +74,81 @@ interface VtpassVerifyResponse {
   customerName?: string
 }
 
+// Helper — builds the unified VTpass payload the backend expects
+function vtpassPayload(
+  serviceId: string,
+  amountNaira: number,
+  phone: string,
+  billersCode?: string,
+  variationCode?: string,
+) {
+  return {
+    service_id:     serviceId,
+    amount_kobo:    Math.round(amountNaira * 100),
+    phone,
+    billers_code:   billersCode  ?? undefined,
+    variation_code: variationCode ?? undefined,
+  }
+}
+
 export const paymentsService = {
+  // GET /api/payments/vtpass/services?identifier=<id>
   getVariations: (serviceId: string): Promise<ServiceVariation[]> =>
-    api.get<VtpassVariationsResponse>(`/payments/variations/${serviceId}`).then(r => {
+    api.get<VtpassVariationsResponse>('/payments/vtpass/variations', {
+      params: { serviceID: serviceId },
+    }).then(r => {
       const d = r.data
-      // Real backend: { content: { variations: [...] } }
       if (d.content?.variations) return d.content.variations
-      // MSW mock: { variations: [...] }
       if (d.variations) return d.variations
       return []
     }),
 
+  // POST /api/payments/vtpass/verify (proxied by backend to VTpass)
   verify: (payload: VerifyPayload): Promise<BillerVerify> =>
-    api.post<VtpassVerifyResponse>('/payments/verify', payload).then(r => {
+    api.post<VtpassVerifyResponse>('/payments/verify', {
+      service_id:   payload.serviceId,
+      billers_code: payload.billersCode,
+      type:         payload.type,
+    }).then(r => {
       const d = r.data
-      // Real backend: { code, content: { customerName, ... } }
       if (d.content && d.code !== undefined) return d.content as BillerVerify
-      // MSW mock: BillerVerify directly
       return d as BillerVerify
     }),
 
+  // All bill payments → POST /api/payments/vtpass
   airtime: (payload: AirtimePayload): Promise<BillPaymentResponse> =>
-    api.post<BillPaymentResponse>('/payments/airtime', payload).then(r => r.data),
+    api.post<BillPaymentResponse>('/payments/vtpass',
+      vtpassPayload(payload.serviceId, payload.amount, payload.phone),
+      { headers: { 'X-Idempotency-Key': self.crypto.randomUUID() } }
+    ).then(r => r.data),
 
   data: (payload: DataPayload): Promise<BillPaymentResponse> =>
-    api.post<BillPaymentResponse>('/payments/data', payload).then(r => r.data),
+    api.post<BillPaymentResponse>('/payments/vtpass',
+      vtpassPayload(payload.serviceId, 0, payload.billersCode, payload.billersCode, payload.variationCode),
+      { headers: { 'X-Idempotency-Key': self.crypto.randomUUID() } }
+    ).then(r => r.data),
 
   tv: (payload: TvPayload): Promise<BillPaymentResponse> =>
-    api.post<BillPaymentResponse>('/payments/tv', payload).then(r => r.data),
+    api.post<BillPaymentResponse>('/payments/vtpass',
+      vtpassPayload(payload.serviceId, payload.amount ?? 0, payload.billersCode, payload.billersCode, payload.variationCode),
+      { headers: { 'X-Idempotency-Key': self.crypto.randomUUID() } }
+    ).then(r => r.data),
 
   electricity: (payload: ElectricityPayload): Promise<BillPaymentResponse> =>
-    api.post<BillPaymentResponse>('/payments/electricity', payload).then(r => r.data),
+    api.post<BillPaymentResponse>('/payments/vtpass',
+      vtpassPayload(payload.serviceId, payload.amount, payload.billersCode, payload.billersCode, payload.variationCode),
+      { headers: { 'X-Idempotency-Key': self.crypto.randomUUID() } }
+    ).then(r => r.data),
 
   education: (payload: EducationPayload): Promise<BillPaymentResponse> =>
-    api.post<BillPaymentResponse>('/payments/education', payload).then(r => r.data),
+    api.post<BillPaymentResponse>('/payments/vtpass',
+      vtpassPayload(payload.serviceId, 0, payload.phone ?? payload.billersCode, payload.billersCode, payload.variationCode),
+      { headers: { 'X-Idempotency-Key': self.crypto.randomUUID() } }
+    ).then(r => r.data),
 
   insurance: (payload: InsurancePayload): Promise<BillPaymentResponse> =>
-    api.post<BillPaymentResponse>('/payments/insurance', payload).then(r => r.data),
+    api.post<BillPaymentResponse>('/payments/vtpass',
+      vtpassPayload(payload.serviceId, 0, payload.billersCode, payload.billersCode, payload.variationCode),
+      { headers: { 'X-Idempotency-Key': self.crypto.randomUUID() } }
+    ).then(r => r.data),
 }

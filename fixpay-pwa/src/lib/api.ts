@@ -19,8 +19,10 @@ api.interceptors.request.use((config) => {
   if (token) config.headers.Authorization = `Bearer ${token}`
   const fp = localStorage.getItem('device_fp')
   if (fp) config.headers['X-Device-Fingerprint'] = fp
-  const tid = localStorage.getItem('tenant_id')
-  if (tid) config.headers['X-Tenant-ID'] = tid
+  // tenant_slug is set server-side at login from user.tenant_id FK — not from client input.
+  // Sending it as a header scopes tenant/config and portal calls to the correct tenant.
+  const tenantSlug = localStorage.getItem('tenant_slug')
+  if (tenantSlug) config.headers['X-Tenant-Slug'] = tenantSlug
   return config
 })
 
@@ -82,6 +84,8 @@ export async function serverLogout(): Promise<void> {
   } catch {
     // best-effort — proceed with local cleanup regardless
   }
+  // Clear server-authoritative tenant context so a new login starts clean
+  localStorage.removeItem('tenant_slug')
   purgeDbKey()
   await clearTransactions()
   useAuthStore.getState().logout()

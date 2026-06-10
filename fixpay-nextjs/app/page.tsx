@@ -1,6 +1,0 @@
-import { redirect } from 'next/navigation'
-
-export default function Home() {
-  redirect('/consumer/auth/login')
-}
-

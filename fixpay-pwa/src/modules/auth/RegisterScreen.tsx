@@ -17,6 +17,8 @@ function toE164(phone: string): string {
 }
 
 const schema = z.object({
+  first_name: z.string().min(1, 'First name is required').max(80),
+  last_name:  z.string().min(1, 'Last name is required').max(80),
   phone: z.string().regex(/^0[789]\d{9}$/, 'Enter a valid 11-digit phone number'),
   email: z.string().email('Enter a valid email address'),
   password: z.string().min(8, 'At least 8 characters'),
@@ -35,7 +37,7 @@ export function RegisterScreen() {
 
   const { register, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { phone: '', email: '', password: '', confirmPassword: '' },
+    defaultValues: { first_name: '', last_name: '', phone: '', email: '', password: '', confirmPassword: '' },
     mode: 'onChange',
   })
 
@@ -46,7 +48,15 @@ export function RegisterScreen() {
   const onSubmit = async (data: FormData) => {
     setServerError('')
     try {
-      await api.post('/auth/register', { tenantId, phone: toE164(data.phone), email: data.email, password: data.password })
+      await api.post('/auth/register', {
+        tenantId,
+        first_name: data.first_name,
+        last_name: data.last_name,
+        phone: toE164(data.phone),
+        email: data.email,
+        password: data.password,
+      })
+      localStorage.setItem('fixpay_onboarded', '1')
       setPending(data.phone, data.email)
       navigate('/auth/otp')
     } catch (err: unknown) {
@@ -68,6 +78,12 @@ export function RegisterScreen() {
         <p className="text-[15px] text-gray-500 mb-6">Join FixPay to send money and pay bills.</p>
 
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+          <div className="flex gap-3">
+            <Input label="First Name" type="text" placeholder="Ada"
+              error={errors.first_name?.message} {...register('first_name')} />
+            <Input label="Last Name" type="text" placeholder="Obi"
+              error={errors.last_name?.message} {...register('last_name')} />
+          </div>
           <Input label="Phone Number" type="tel" placeholder="08012345678"
             error={errors.phone?.message} {...register('phone')} />
           <Input label="Email Address" type="email" placeholder="you@example.com"

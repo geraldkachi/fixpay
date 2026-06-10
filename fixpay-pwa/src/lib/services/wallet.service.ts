@@ -3,22 +3,28 @@ import { saveTransactions, loadTransactions, loadTransaction } from '@/lib/db'
 import type { Wallet, Transaction } from '@/types'
 
 export interface WalletBalanceResponse {
-  walletId: string
+  id: string
+  balance_kobo: number      // kobo integer — returned directly by backend
+  ledger_balance_kobo: number
   currency: string
-  availableBalance: number   // NGN from backend
-  ledgerBalance: number
   status: string
-  // optional — backend may add this in future; MSW mock includes it
-  virtualAccount?: { accountNumber: string; bankName: string; bankCode: string }
+  virtual_account_number: string | null
+  virtual_account_bank: string | null
+  virtual_account_bank_code: string | null
 }
 
 function toWallet(b: WalletBalanceResponse): Wallet {
   return {
-    id: b.walletId,
-    balanceKobo: Math.round(b.availableBalance * 100),
-    currency: 'NGN',
+    id: b.id,
+    // balance_kobo is already in kobo — no multiplication needed
+    balanceKobo: b.balance_kobo,
+    currency: b.currency ?? 'NGN',
     status: b.status as Wallet['status'],
-    virtualAccount: b.virtualAccount ?? { accountNumber: '', bankName: '', bankCode: '' },
+    virtualAccount: {
+      accountNumber: b.virtual_account_number ?? '',
+      bankName:      b.virtual_account_bank ?? '',
+      bankCode:      b.virtual_account_bank_code ?? '',
+    },
   }
 }
 
@@ -31,17 +37,17 @@ export interface TransactionPage {
 
 export const walletService = {
   /**
-   * GET /wallet/balance — wrapped in ApiResponse<WalletBalanceResponse>.
-   * Falls back gracefully if mock returns Wallet shape directly.
+   * GET /wallet — wrapped in ApiResponse<WalletBalanceResponse>.
+   * Backend returns balance_kobo (integer kobo), NOT a float NGN value.
    */
   getBalance: (): Promise<Wallet> =>
-    api.get<{ success: boolean; data: WalletBalanceResponse } | Wallet>('/wallet/balance').then(r => {
+    api.get<{ success: boolean; data: WalletBalanceResponse } | WalletBalanceResponse>('/wallet').then(r => {
       const payload = r.data as { success?: boolean; data?: WalletBalanceResponse }
       if (payload.success !== undefined && payload.data) {
         return toWallet(payload.data)
       }
-      // mock returns Wallet shape directly
-      return r.data as Wallet
+      // direct shape (no ApiResponse wrapper)
+      return toWallet(r.data as WalletBalanceResponse)
     }),
 
   /**

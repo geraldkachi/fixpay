@@ -1,0 +1,197 @@
+# Antigravity Rules: PWA & Backend Optimization
+# Target: Token Conservation & Production-Ready Standards
+
+# ==============================================================================
+# 1. CORE OPERATIONAL CONSTRAINTS (TOKEN OPTIMIZATION)
+# ==============================================================================
+
+rule_id: token_conservation_diffs
+trigger: code_modification_requested
+action:
+  - NEVER rewrite an entire file if changes affect less than 80% of the contents.
+  - Output code exclusively using targeted unified diff blocks or micro-diffs.
+  - Specify exact line anchors or function names where insertions occur.
+
+rule_id: modular_context_loading
+trigger: workspace_scanned
+action:
+  - DO NOT inline external documentation, API specifications, or framework guides into the active prompt window.
+  - Reference local configuration files dynamically via relative workspace paths (e.g., `./specs/`).
+  - Read only the specific section of a file required to resolve the immediate task.
+
+rule_id: model_allocation_routing
+trigger: execution_plan_created
+action:
+  - Route standard implementation tasks, boilerplate generation, and simple code refactors to faster, low-cost models.
+  - Escalate only complex architectural design, deep debugging, and security audits to high-tier reasoning models.
+
+  rule_id: aggressive_clarification_grilling
+trigger: before_any_task_execution
+action:
+  - Absolute Zero-Guessing Policy: If any edge case, API parameter, error-handling flow, or business logic rule in the specs is ambiguous, incomplete, or missing, DO NOT write placeholder code or make assumptions.
+  - You must immediately halt execution and actively grill the user with sharp, targeted, and direct clarifying questions to resolve the ambiguity.
+  - Structure your questioning by pointing out the exact contradiction or gap in the current plan/spec, explaining the financial risk of guessing, and providing clear options for the user to choose from.
+  - Do not proceed to code generation until the user has explicitly cleared your doubts.
+
+# ==============================================================================
+# 2. PROGRESSIVE WEB APP (PWA) TECHNICAL SPECIFICATIONS
+# ==============================================================================
+
+rule_id: pwa_caching_boundaries
+trigger: editing_service_worker
+action:
+  - Enforce strict size limitations on the caching tier to comply with mobile OS constraints.
+  - Limit the precache manifest exclusively to critical app-shell elements (HTML, core JS, CSS, essential icons).
+  - Explicitly forbid the caching of dynamic media assets, large datasets, or non-critical dependencies.
+
+rule_id: pwa_installability_compliance
+trigger: modifying_manifest_or_sw
+action:
+  - Validate that `manifest.json` contains a valid `display: "standalone"`, `start_url`, and high-resolution icons.
+  - Ensure the Service Worker explicitly binds and handles a functional `fetch` event listener to pass standalone requirements.
+
+# ==============================================================================
+# 3. BACKEND ENGINEERING & SECURITY PRINCIPLES
+# ==============================================================================
+
+rule_id: environment_variable_isolation
+trigger: database_or_api_configuration
+action:
+  - Forbid the hardcoding of raw strings for API keys, secret credentials, salts, tokens, or database connection strings.
+  - Enforce reference bindings through platform environment variables (`process.env` or equivalent).
+  - Automatically reject any instruction requesting the reading or printing of actual secret files.
+
+rule_id: architectural_boundary_enforcement
+trigger: codebase_refactor
+action:
+  - Prevent the leakage of backend execution logic, server-side environment parameters, or direct database clients into client-side bundles.
+  - Keep data transport layers explicitly decoupled via structural API boundaries.
+
+rule_id: injection_prevention
+trigger: database_query_written
+action:
+  - Reject all direct string concatenations or raw interpolation of external input into data persistence queries.
+  - Mandate the utilization of parameterized queries or type-safe Object-Relational Mapping (ORM) frameworks.
+
+# ==============================================================================
+# 4. TESTING & AGENT BEHAVIORAL CONTROL
+# ==============================================================================
+
+rule_id: verification_and_testing
+trigger: feature_completion_proposed
+action:
+  - Do not mark a feature or task as complete based on purely theoretical code generation.
+  - Require the execution of corresponding automated unit tests, backend validation runner profiles, or automated audit routines.
+
+rule_id: strict_agent_autonomy_gate
+trigger: file_system_mutation
+action:
+  - Halt automated agent execution chains before running disruptive, destructive, or network-bound operations.
+  - Await explicit user authorization before applying any file system changes outside of designated working directories.
+
+==============================================================================
+# 5. PLANS AND SPECS
+# ==============================================================================
+
+rule_id: mandatory_specs_folder_lookup
+trigger: before_any_task_execution
+action:
+  - Before writing code or proposing a solution, ALWAYS read and scan the `./specs/` directory first.
+  - Cross-reference all generated plans and code architectures against the constraints found in the specifications folder.
+  - If a required specification or project plan is missing from this folder, halt execution and ask the user for clarification.
+  - DO NOT ingest plan files or specification sheets located outside of this designated directory.
+
+# Antigravity Rules: Fintech PWA (React/Zustand) & Backend (Laravel)
+# Target: Secure Wallets, Idempotency, and PCI-DSS Compliant Workflows
+
+# ==============================================================================
+# 6. SPECIALIZED SPECIFICATION & PLAN ROUTING
+# ==============================================================================
+
+rule_id: mandatory_specs_folder_lookup
+trigger: before_any_task_execution
+action:
+  - Before writing code or proposing a solution, ALWAYS read and scan the `./specs/` directory first.
+  - Cross-reference all generated plans and code architectures against the constraints found in the specifications folder.
+  - If a required specification or project plan is missing from this folder, halt execution and ask the user for clarification.
+  - DO NOT ingest plan files or specification sheets located outside of this designated directory.
+
+# ==============================================================================
+# 7. FRONTEND STATE & TRANSACTION INTEGRITY (ZUSTAND & REACT)
+# ==============================================================================
+
+rule_id: zustand_freeze_and_poll_strategy
+trigger: modifying_frontend_wallet_state
+action:
+  - Ban all optimistic updates for wallet balances, fund transfers, or bill payments.
+  - Mandate that Zustand actions immediately trigger a UI 'loading/frozen' state upon initiation.
+  - Force the UI to remain interactive-locked (frozen) while executing an active short-polling hook or listening to a WebSocket response from Laravel.
+  - Only allow state unlocking and balance mutations inside Zustand after receiving an explicit 200 OK or successful webhook update payload from the backend.
+
+rule_id: prevent_double_submit_ui
+trigger: rendering_payment_buttons
+action:
+  - Enforce strict, immediate button-disabling patterns on all transaction submit actions.
+  - Require the submission component to check for an active `isProcessing` flag from the Zustand store before evaluating click handlers.
+
+# ==============================================================================
+# 8. BACKEND IDEMPOTENCY & LEDGER SAFETY (LARAVEL)
+# ==============================================================================
+
+rule_id: laravel_idempotency_enforcement
+trigger: modifying_laravel_payment_controllers
+action:
+  - Mandate an `X-Idempotency-Key` header check for all POST/PUT routes touching wallet accounts or VTPass bill utilities.
+  - Require the use of Laravel Cache or database locks to atomically intercept incoming duplicate requests with the same key.
+  - Ensure that if an idempotent match occurs during an in-flight operation, the API immediately returns a `409 Conflict` or a cached representation of the original response.
+
+rule_id: precise_financial_math
+trigger: writing_financial_calculations
+action:
+  - Forbid standard PHP floating-point operators (`+`, `-`, `*`, `/`) for money.
+  - Mandate the `BCMath` extension functions (e.g., `bcadd`, `bcsub`, `bcmul`) or a dedicated money library (e.g., Brick\Money) with explicitly defined decimal scales.
+
+# ==============================================================================
+# 9. CARD TOKENIZATION & GATEWAY SECURITY (PCI-DSS COMPLIANCE)
+# ==============================================================================
+
+rule_id: pci_dss_iframe_isolation
+trigger: modifying_checkout_or_card_components
+action:
+  - Strict Zero-Trust on raw PAN data: The agent must NEVER write frontend inputs, state variables, or local state configurations that capture full credit card numbers (PAN), CVVs, or expiration dates.
+  - Force all card capture flows to load via the payment gateway's secure hosted fields, SDK, or compliance-wrapped iFrames.
+  - Restrict React state variables exclusively to handling the returning `token`, `mask`, `brand`, or `payment_id` emitted by the gateway SDK callback.
+
+rule_id: secure_token_reuse_storage
+trigger: modifying_card_token_persistence
+action:
+  - Validate that backend database structures store only the reusable gateway token string and never raw payment payload artifacts.
+  - Require that any one-click payment execution route automatically authenticates the customer session (e.g., via fresh Sanctum token verification or multi-factor checks) before charging the stored token.
+
+# ==============================================================================
+# 10. CORE TOKEN CONSERVATION (ANTIGRAVITY WORKSPACE LIMITS)
+# ==============================================================================
+
+rule_id: token_conservation_diffs
+trigger: code_modification_requested
+action:
+  - NEVER rewrite an entire file if changes affect less than 80% of the contents.
+  - Output code exclusively using targeted unified diff blocks or micro-diffs in Markdown layout.
+
+rule_id: model_allocation_routing
+trigger: execution_plan_created
+action:
+  - Route standard React UI layout, basic Laravel controller stubs, and routine validation rule generation to fast, low-cost models.
+  - Escalate wallet ledger updates, cryptographic signature checks, VTPass API integrations, and webhook handlers to advanced reasoning engines.
+Use code with caution.
+
+# GENERAL RULES
+rule_id: regression_control_protocol
+trigger: code_modification_requested
+action:
+### Regression Control Protocol
+Before initiating or executing any task, you must explicitly perform a Regression Impact Assessment. 
+  - Identify the 'blast radius' and interconnected dependencies of the planned change.
+  - Determine if any existing functionality, performance, or user experience might degrade. 
+  - If the assessment shows a neutral or positive impact, you may proceed.
+  - If the assessment indicates a *negative* regression impact, halt and await explicit approval from the user. Do not proceed with the task until the negative impact has been cleared.

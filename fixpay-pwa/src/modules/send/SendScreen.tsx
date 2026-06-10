@@ -14,6 +14,7 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { BottomSheet } from '@/components/ui/BottomSheet'
+import { useTransactionStore } from '@/store/transaction.store'
 import { PinPad } from '@/components/ui/PinPad'
 import { Spinner } from '@/components/ui/Spinner'
 
@@ -36,7 +37,7 @@ export function SendScreen() {
   const [enquiring, setEnquiring] = useState(false)
   const [enquiryError, setEnquiryError] = useState('')
   const [pending, setPending] = useState<FormData | null>(null)
-  const [submitting, setSubmitting] = useState(false)
+  const { isProcessing, startProcessing, stopProcessing } = useTransactionStore()
   const [bankSearch, setBankSearch] = useState('')
   const [showBankSheet, setShowBankSheet] = useState(false)
 
@@ -75,17 +76,26 @@ export function SendScreen() {
 
   const handlePinChange = async (val: string) => {
     setPin(val); setPinError('')
-    if (val.length < 6 || !pending || submitting) return
-    setSubmitting(true)
+    if (val.length < 4 || !pending || isProcessing) return
+    startProcessing()
     try {
       await api.post('/auth/pin/verify', { pin: val })
-      await api.post('/transfers/bank', { ...pending, narration: pending.narration ?? 'Transfer' })
+      
+      // Generate X-Idempotency-Key on the frontend
+      const idempotencyKey = self.crypto.randomUUID()
+      await api.post('/transfers/bank', 
+        { ...pending, narration: pending.narration ?? 'Transfer' },
+        { headers: { 'X-Idempotency-Key': idempotencyKey } }
+      )
+
       queryClient.invalidateQueries({ queryKey: ['wallet'] })
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
       navigate('/home', { replace: true })
     } catch {
       setPinError('Incorrect PIN or transfer failed.')
-      setPin(''); setSubmitting(false)
+      setPin('')
+    } finally {
+      stopProcessing()
     }
   }
 
@@ -139,7 +149,7 @@ export function SendScreen() {
 
           <Input label="Narration (optional)" type="text" placeholder="Transfer description" {...register('narration')} />
 
-          <Button type="submit" fullWidth className="mt-2" disabled={!nameEnquiry}>Send Money</Button>
+          <Button type="submit" fullWidth className="mt-2" disabled={!nameEnquiry || isProcessing}>Send Money</Button>
         </form>
       </div>
 
@@ -160,9 +170,9 @@ export function SendScreen() {
         </div>
       </BottomSheet>
 
-      <BottomSheet open={showPin} onClose={() => setShowPin(false)} title="Enter PIN" dismissible={!submitting}>
+      <BottomSheet open={showPin} onClose={() => setShowPin(false)} title="Enter PIN" dismissible={!isProcessing}>
         <div className="px-2 pt-2 pb-4">
-          <PinPad value={pin} onChange={handlePinChange} error={pinError} disabled={submitting} />
+          <PinPad value={pin} onChange={handlePinChange} error={pinError} disabled={isProcessing} />
         </div>
       </BottomSheet>
     </div>

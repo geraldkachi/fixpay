@@ -18,7 +18,7 @@ class VtpassPaymentController extends Controller
     public function services(Request $request): JsonResponse
     {
         $identifier = $request->query('identifier', 'airtime');
-        $client = new Client(['timeout' => 15]);
+        $client = new Client(['timeout' => 15, 'verify' => false]);
 
         $response = $client->get(config('services.vtpass.base_url') . '/services', [
             'headers' => [
@@ -38,7 +38,7 @@ class VtpassPaymentController extends Controller
     {
         $request->validate(['serviceID' => 'required|string']);
 
-        $client = new Client(['timeout' => 15]);
+        $client = new Client(['timeout' => 15, 'verify' => false]);
         $response = $client->get(config('services.vtpass.base_url') . '/service-variations', [
             'headers' => [
                 'api-key' => config('services.vtpass.api_key'),

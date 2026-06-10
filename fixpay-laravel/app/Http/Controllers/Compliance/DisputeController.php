@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Compliance;
 
 use App\Http\Controllers\Controller;
 use App\Models\Dispute;
+use App\Models\Transfer;
+use App\Models\VtpassPayment;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Spatie\QueryBuilder\QueryBuilder;
@@ -21,6 +23,30 @@ class DisputeController extends Controller
         ]);
 
         $user = $request->user();
+
+        if (!empty($data['related_payment_id']) && !empty($data['related_payment_type'])) {
+            if ($data['related_payment_type'] === 'VTPASS') {
+                $paymentExists = VtpassPayment::where('user_id', $user->id)
+                    ->where(function ($query) use ($data) {
+                        $query->where('id', $data['related_payment_id'])
+                              ->orWhere('payment_reference', $data['related_payment_id']);
+                    })
+                    ->exists();
+                if (!$paymentExists) {
+                    return response()->json(['message' => 'Invalid or unauthorized payment ID.'], 403);
+                }
+            } elseif ($data['related_payment_type'] === 'TRANSFER') {
+                $transferExists = Transfer::where('user_id', $user->id)
+                    ->where(function ($query) use ($data) {
+                        $query->where('id', $data['related_payment_id'])
+                              ->orWhere('transfer_reference', $data['related_payment_id']);
+                    })
+                    ->exists();
+                if (!$transferExists) {
+                    return response()->json(['message' => 'Invalid or unauthorized payment ID.'], 403);
+                }
+            }
+        }
 
         $dispute = Dispute::create(array_merge($data, [
             'user_id'      => $user->id,

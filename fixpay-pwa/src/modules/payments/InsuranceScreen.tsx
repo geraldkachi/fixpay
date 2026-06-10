@@ -54,7 +54,7 @@ export function InsuranceScreen() {
 
   const handlePinChange = async (val: string) => {
     setPin(val); setPinError('')
-    if (val.length < 6 || !pending || submitting) return
+    if (val.length < 4 || !pending || submitting) return
     setSubmitting(true)
     try {
       await authService.verifyPin(val)
@@ -66,9 +66,9 @@ export function InsuranceScreen() {
           type: 'insurance',
           serviceId: pending.serviceId,
           exam: chosen?.name,
-          amount: parseFloat(chosen?.variationAmount ?? '0'),
-          requestId: res.requestId,
-          date: res.transaction_date,
+          amount_kobo: res.amount_kobo,
+          requestId: res.payment_reference,
+          date: new Date().toISOString(),
           purchased_code: res.purchased_code,
         },
       })

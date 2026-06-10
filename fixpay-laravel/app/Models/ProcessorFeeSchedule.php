@@ -33,12 +33,19 @@ class ProcessorFeeSchedule extends Model
 
     public function calculateFee(int $amountKobo): int
     {
-        $fee = (int) round($amountKobo * (float) $this->percentage_fee) + $this->flat_fee_kobo;
+        // Use BCMath to compute precise percentage fee (scale 4)
+        $percentFee = bcmul((string) $amountKobo, (string) $this->percentage_fee, 4);
+        
+        // Round to nearest integer using pure BCMath (add 0.5 and truncate to scale 0)
+        $roundedPercentFee = bcadd($percentFee, '0.5', 0);
 
-        if ($this->cap_kobo !== null && $fee > $this->cap_kobo) {
-            $fee = $this->cap_kobo;
+        // Add the flat fee in kobo using BCMath
+        $totalFee = (int) bcadd($roundedPercentFee, (string) $this->flat_fee_kobo, 0);
+
+        if ($this->cap_kobo !== null && $totalFee > $this->cap_kobo) {
+            return $this->cap_kobo;
         }
 
-        return $fee;
+        return $totalFee;
     }
 }
