@@ -26,7 +26,7 @@ export function LoginScreen() {
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { identifier: '08012345678', password: 'password123' },
+    defaultValues: { identifier: '', password: '' },
   })
 
   const onSubmit = async (data: FormData) => {
@@ -92,11 +92,27 @@ export function LoginScreen() {
           </p>
         )}
         <p className="text-[15px] text-gray-500 mb-6">Enter your phone or email to continue.</p>
-        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
-          <Input label="Phone or Email" type="text" placeholder="08012345678"
-            error={errors.identifier?.message} {...register('identifier')} />
-          <Input label="Password" type="password" placeholder="Your password"
-            error={errors.password?.message} {...register('password')} />
+        {/* Hidden honeypot fields: Chrome/Edge ignore autocomplete="off" on login forms
+            but will fill into the first matching hidden input instead of the real ones. */}
+        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" autoComplete="new-password">
+          <input type="text" name="fakeusername" style={{ display: 'none' }} aria-hidden="true" tabIndex={-1} readOnly />
+          <input type="password" name="fakepassword" style={{ display: 'none' }} aria-hidden="true" tabIndex={-1} readOnly />
+          <Input 
+            label="Phone or Email" 
+            type="text" 
+            placeholder="Enter phone or email"
+            autoComplete="new-password"
+            error={errors.identifier?.message} 
+            {...register('identifier')} 
+          />
+          <Input 
+            label="Password" 
+            type="password" 
+            placeholder="Enter password"
+            autoComplete="new-password"
+            error={errors.password?.message} 
+            {...register('password')} 
+          />
           {serverError && <p className="text-[14px] text-ios-red text-center">{serverError}</p>}
           <Button type="submit" fullWidth loading={isSubmitting} className="mt-2">Sign In</Button>
         </form>

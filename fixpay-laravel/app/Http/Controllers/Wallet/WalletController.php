@@ -39,11 +39,13 @@ class WalletController extends Controller
             return response()->json(['message' => 'Wallet not found.'], 404);
         }
 
+        $perPage = $request->input('per_page') ?? $request->input('size') ?? 20;
+
         $entries = QueryBuilder::for($wallet->ledgerEntries())
             ->allowedFilters(['entry_type', 'correlation_id'])
             ->allowedSorts(['created_at'])
             ->defaultSort('-created_at')
-            ->paginate($request->input('per_page', 20));
+            ->paginate($perPage);
 
         return response()->json($entries);
     }

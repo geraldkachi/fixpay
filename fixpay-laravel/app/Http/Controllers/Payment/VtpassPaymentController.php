@@ -42,6 +42,7 @@ class VtpassPaymentController extends Controller
         $response = $client->get(config('services.vtpass.base_url') . '/service-variations', [
             'headers' => [
                 'api-key' => config('services.vtpass.api_key'),
+                'secret-key' => config('services.vtpass.secret_key'),
                 'public-key' => config('services.vtpass.public_key'),
             ],
             'query' => ['serviceID' => $request->query('serviceID')],
@@ -90,12 +91,13 @@ class VtpassPaymentController extends Controller
     public function pay(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'service_id'     => 'required|string',
-            'amount_kobo'    => 'required|integer|min:100',
-            'phone'          => 'required|string',
-            'billers_code'   => 'nullable|string',
-            'variation_code' => 'nullable|string',
-            'idempotency_key' => 'nullable|string|uuid',
+            'service_id'        => 'required|string',
+            'amount_kobo'       => 'required|integer|min:100',
+            'phone'             => 'required|string',
+            'billers_code'      => 'nullable|string',
+            'variation_code'    => 'nullable|string',
+            'subscription_type' => 'nullable|in:renew,change',
+            'idempotency_key'   => 'nullable|string|uuid',
         ]);
 
         $user = $request->user();
@@ -113,7 +115,10 @@ class VtpassPaymentController extends Controller
             phone: $data['phone'],
             billersCode: $data['billers_code'] ?? null,
             variationCode: $data['variation_code'] ?? null,
-            extra: ['idempotency_key' => $data['idempotency_key'] ?? null],
+            extra: [
+                'idempotency_key'   => $data['idempotency_key'] ?? null,
+                'subscription_type' => $data['subscription_type'] ?? null,
+            ],
         );
 
         // Submit asynchronously via queue in production; sync here for simplicity

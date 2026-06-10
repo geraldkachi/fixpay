@@ -18,7 +18,7 @@ export interface Wallet {
 }
 
 export type TxType = 'bill_payment' | 'transfer_out' | 'transfer_in' | 'wallet_funding' | 'withdrawal'
-export type TxStatus = 'initiated' | 'processing' | 'completed' | 'failed' | 'reversed'
+export type TxStatus = 'initiated' | 'processing' | 'pending' | 'completed' | 'failed' | 'reversed'
 
 export interface Transaction {
   id: string
@@ -32,6 +32,9 @@ export interface Transaction {
   serviceId?: string
   serviceName?: string
   token?: string
+  units?: string
+  Pin?: string
+  purchased_code?: string
   createdAt: string
 }
 
@@ -77,7 +80,7 @@ export interface BillerVerify {
 export interface PaymentResult {
   transactionId: string
   reference: string
-  vtpassStatus: 'delivered' | 'pending' | 'failed'
+  vtpassStatus: 'initiated' | 'delivered' | 'pending' | 'failed'
   serviceName: string
   amountKobo: number
   phone: string
@@ -161,6 +164,7 @@ export interface BillPaymentResponse {
   units?: string
   Pin?: string
   purchased_code?: string
+  vtpass_code?: string
 }
 
 /** Matches MandateResponse.java. maxAmount is in NGN. */

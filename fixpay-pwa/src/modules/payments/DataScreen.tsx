@@ -15,6 +15,7 @@ import { BottomSheet } from '@/components/ui/BottomSheet'
 import { useTransactionStore } from '@/store/transaction.store'
 import { PinPad } from '@/components/ui/PinPad'
 import { Spinner } from '@/components/ui/Spinner'
+import { resolveVtpassCode } from '@/lib/vtpass-codes'
 
 const parseAmount = (amt: string | number | undefined | null): number => {
   if (!amt) return 0;
@@ -37,6 +38,7 @@ const schema = z.object({
   serviceId:     z.string().min(1, 'Select a network'),
   billersCode:   z.string().min(5, 'Enter a valid number or account ID'),
   variationCode: z.string().min(1, 'Select a bundle'),
+  amount:        z.number().min(1, 'Bundle has no price'),
 })
 type FormData = z.infer<typeof schema>
 
@@ -50,7 +52,7 @@ export function DataScreen() {
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { serviceId: 'mtn-data', billersCode: '', variationCode: '' },
+    defaultValues: { serviceId: 'mtn-data', billersCode: '', variationCode: '', amount: 0 },
   })
   const serviceId = watch('serviceId')
   const variationCode = watch('variationCode')
@@ -60,6 +62,12 @@ export function DataScreen() {
     queryFn: () => paymentsService.getVariations(serviceId),
   })
   const chosen = variations.find(v => (v.variationCode ?? (v as any).variation_code) === variationCode)
+
+  // Keep amount in sync whenever a variation is selected
+  const onVariationSelect = (code: string, amountNaira: number) => {
+    setValue('variationCode', code)
+    setValue('amount', amountNaira)
+  }
 
   const onSubmit = (data: FormData) => { setPending(data); setPin(''); setPinError(''); setShowPin(true) }
 
@@ -72,11 +80,26 @@ export function DataScreen() {
       const res = await paymentsService.data(pending)
       queryClient.invalidateQueries({ queryKey: ['wallet'] })
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
-      navigate('/payments/receipt', {
-        state: { type: 'data', bundle: chosen?.name, network: pending.serviceId, phone: pending.billersCode, amount_kobo: res.amount_kobo, requestId: res.payment_reference, date: new Date().toISOString() },
-      })
-    } catch {
-      setPinError('Incorrect PIN or purchase failed. Try again.')
+
+      const outcome = resolveVtpassCode(res.vtpass_code)
+      const statePayload = {
+        type: 'data',
+        bundle: chosen?.name,
+        network: pending.serviceId,
+        phone: pending.billersCode,
+        amount_kobo: res.amount_kobo,
+        requestId: res.payment_reference,
+        date: new Date().toISOString(),
+      }
+
+      if (res.status === 'pending' || outcome.isPending) {
+        navigate('/payments/pending', { state: statePayload })
+      } else {
+        navigate('/payments/receipt', { state: statePayload })
+      }
+    } catch (err: any) {
+      const serverMsg = err?.response?.data?.message || 'Incorrect PIN or purchase failed. Try again.'
+      setPinError(serverMsg)
       setPin('')
     } finally {
       stopProcessing()
@@ -112,15 +135,16 @@ export function DataScreen() {
             <p className="text-[13px] font-semibold text-gray-500 uppercase tracking-wide mb-2">Select Bundle</p>
             {varsLoading ? <div className="flex justify-center py-4"><Spinner /></div> : (
               <div className="flex flex-col gap-2 max-h-[240px] overflow-y-auto pr-1">
-                {variations.map(v => {
+                {variations.map((v, idx) => {
                   const code = v.variationCode ?? (v as any).variation_code
                   const amount = v.variationAmount ?? (v as any).variation_amount
+                  const amountNaira = parseAmount(amount)
                   return (
-                    <button key={code} type="button" onClick={() => setValue('variationCode', code)}
+                    <button key={code || idx} type="button" onClick={() => onVariationSelect(code, amountNaira)}
                       className="flex items-center justify-between bg-white rounded-[14px] px-4 py-3 border-2 transition-all pressable"
                       style={{ borderColor: variationCode === code ? 'var(--brand-primary)' : 'transparent' }}>
                       <span className="text-[15px] font-medium text-gray-800 text-left mr-2">{v.name}</span>
-                      <span className="text-[15px] font-bold shrink-0" style={{ color: 'var(--brand-primary)' }}>₦{parseAmount(amount).toLocaleString()}</span>
+                      <span className="text-[15px] font-bold shrink-0" style={{ color: 'var(--brand-primary)' }}>₦{amountNaira.toLocaleString()}</span>
                     </button>
                   )
                 })}

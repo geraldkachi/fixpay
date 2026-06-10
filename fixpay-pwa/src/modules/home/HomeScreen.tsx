@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { BellIcon } from '@heroicons/react/24/outline'
@@ -7,10 +8,13 @@ import { ServiceGrid } from '@/components/feature/ServiceGrid'
 import { TransactionItem } from '@/components/feature/TransactionItem'
 import { Logo } from '@/components/ui/Logo'
 import { walletService } from '@/lib/services/wallet.service'
+import { TransactionDetailsBottomSheet } from '@/components/feature/TransactionDetailsBottomSheet'
+import type { Transaction } from '@/types'
 
 export function HomeScreen() {
   const { user } = useAuthStore()
   const navigate = useNavigate()
+  const [selectedTx, setSelectedTx] = useState<Transaction | null>(null)
 
   const { data: txPage } = useQuery({
     queryKey: ['transactions', { page: 0, size: 5 }],
@@ -55,10 +59,12 @@ export function HomeScreen() {
           <div className="bg-white rounded-[16px] p-8 text-center text-gray-400 text-[14px]">No transactions yet</div>
         ) : (
           <div className="bg-white rounded-[16px] overflow-hidden">
-            {txns.map(tx => <TransactionItem key={tx.id} tx={tx} onClick={() => navigate(`/wallet/transactions/${tx.id}`)} />)}
+            {txns.map(tx => <TransactionItem key={tx.id} tx={tx} onClick={() => setSelectedTx(tx)} />)}
           </div>
         )}
       </section>
+
+      <TransactionDetailsBottomSheet tx={selectedTx} open={selectedTx !== null} onClose={() => setSelectedTx(null)} />
     </div>
   )
 }

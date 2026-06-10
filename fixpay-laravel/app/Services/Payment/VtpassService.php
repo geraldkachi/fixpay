@@ -59,20 +59,24 @@ class VtpassService
             $this->walletService->debit($wallet, $totalDebit, $paymentReference, "Bill payment: {$serviceId}");
 
             $payment = VtpassPayment::create([
-                'user_id' => $user->id,
-                'wallet_id' => $wallet->id,
-                'tenant_id' => $user->tenant_id,
-                'payment_reference' => $paymentReference,
-                'idempotency_key' => $idempotencyKey,
-                'service_id' => $serviceId,
-                'variation_code' => $variationCode,
-                'amount_kobo' => $amountKobo,
-                'fee_kobo' => $feeKobo,
-                'phone' => $phone,
-                'billersCode' => $billersCode,
-                'payment_status' => 'PENDING',
-                'processor_id' => $rail?->processor_id,
+                'user_id'          => $user->id,
+                'wallet_id'        => $wallet->id,
+                'tenant_id'        => $user->tenant_id,
+                'payment_reference'=> $paymentReference,
+                'idempotency_key'  => $idempotencyKey,
+                'service_id'       => $serviceId,
+                'variation_code'   => $variationCode,
+                'amount_kobo'      => $amountKobo,
+                'fee_kobo'         => $feeKobo,
+                'phone'            => $phone,
+                'billersCode'      => $billersCode,
+                'payment_status'   => 'PENDING',
+                'processor_id'     => $rail?->processor_id,
                 'processor_fee_kobo' => $feeKobo,
+                // Store extra metadata (subscription_type etc.) for use at submit time
+                'request_payload'  => array_filter([
+                    'subscription_type' => $extra['subscription_type'] ?? null,
+                ], fn ($v) => $v !== null),
             ]);
 
             $this->log($payment, 'DEBIT', 'SUCCESS', ['total_debit_kobo' => $totalDebit]);
@@ -92,12 +96,14 @@ class VtpassService
         try {
             $requestId = now()->format('YmdHis') . $payment->payment_reference;
             $payload = [
-                'request_id' => $requestId,
-                'serviceID' => $payment->service_id,
-                'amount' => (int) round($payment->amount_kobo / 100),
-                'phone' => $payment->phone,
-                'billersCode' => $payment->billersCode,
-                'variation_code' => $payment->variation_code,
+                'request_id'        => $requestId,
+                'serviceID'         => $payment->service_id,
+                'amount'            => (int) round($payment->amount_kobo / 100),
+                'phone'             => $payment->phone,
+                'billersCode'       => $payment->billersCode,
+                'variation_code'    => $payment->variation_code,
+                // Include subscription_type for TV services if stored at initiation
+                'subscription_type' => $payment->request_payload['subscription_type'] ?? null,
             ];
 
             $response = $this->http->post("{$this->baseUrl}/pay", [

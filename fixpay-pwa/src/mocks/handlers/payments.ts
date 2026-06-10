@@ -159,4 +159,22 @@ export const paymentHandlers = [
     await delay(600)
     return HttpResponse.json({ code: '000', content: { transactions: { status: 'delivered' } } })
   }),
+
+  http.post('/api/payments/vtpass/:paymentReference/requery', async ({ params }) => {
+    await delay(600)
+    return HttpResponse.json({
+      success: true,
+      message: 'Requery processed',
+      data: {
+        paymentReference: params.paymentReference,
+        paymentStatus: 'completed',
+        providerStatus: 'delivered',
+        providerCode: '000',
+        providerMessage: 'Transaction Delivered',
+        amount: 50.00,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
+    })
+  }),
 ]

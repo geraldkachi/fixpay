@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/Button'
 import { BottomSheet } from '@/components/ui/BottomSheet'
 import { useTransactionStore } from '@/store/transaction.store'
 import { PinPad } from '@/components/ui/PinPad'
+import { resolveVtpassCode } from '@/lib/vtpass-codes'
 
 const PROVIDERS = [
   { id: 'ikeja-electric',       label: 'Ikeja Electric',        short: 'IKEDC' },
@@ -82,16 +83,29 @@ export function ElectricityScreen() {
       const res = await paymentsService.electricity(pending)
       queryClient.invalidateQueries({ queryKey: ['wallet'] })
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
-      navigate('/payments/receipt', {
-        state: {
-          type: 'electricity', provider: serviceId, customerName: verifyResult?.customerName,
-          meter: pending.billersCode, meterType: variationCode, amount_kobo: res.amount_kobo,
-          token: res.token, units: res.units,
-          requestId: res.payment_reference, date: new Date().toISOString(),
-        },
-      })
-    } catch {
-      setPinError('Incorrect PIN or payment failed.')
+
+      const outcome = resolveVtpassCode(res.vtpass_code)
+      const statePayload = {
+        type: 'electricity',
+        provider: serviceId,
+        customerName: verifyResult?.customerName,
+        meter: pending.billersCode,
+        meterType: variationCode,
+        amount_kobo: res.amount_kobo,
+        token: res.token,
+        units: res.units,
+        requestId: res.payment_reference,
+        date: new Date().toISOString(),
+      }
+
+      if (res.status === 'pending' || outcome.isPending) {
+        navigate('/payments/pending', { state: statePayload })
+      } else {
+        navigate('/payments/receipt', { state: statePayload })
+      }
+    } catch (err: any) {
+      const serverMsg = err?.response?.data?.message || 'Incorrect PIN or payment failed.'
+      setPinError(serverMsg)
       setPin('')
     } finally {
       stopProcessing()

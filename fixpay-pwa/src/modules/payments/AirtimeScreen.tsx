@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/Button'
 import { BottomSheet } from '@/components/ui/BottomSheet'
 import { useTransactionStore } from '@/store/transaction.store'
 import { PinPad } from '@/components/ui/PinPad'
+import { resolveVtpassCode } from '@/lib/vtpass-codes'
 
 const NETWORKS = [
   { id: 'mtn',      label: 'MTN',     color: '#FFCC00', text: '#000' },
@@ -57,11 +58,25 @@ export function AirtimeScreen() {
       })
       queryClient.invalidateQueries({ queryKey: ['wallet'] })
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
-      navigate('/payments/receipt', {
-        state: { type: 'airtime', network: pending.serviceId, phone: pending.phone, amount_kobo: res.amount_kobo, requestId: res.payment_reference, date: new Date().toISOString() },
-      })
-    } catch {
-      setPinError('Incorrect PIN or payment failed. Try again.')
+
+      const outcome = resolveVtpassCode(res.vtpass_code)
+      const statePayload = {
+        type: 'airtime',
+        network: pending.serviceId,
+        phone: pending.phone,
+        amount_kobo: res.amount_kobo,
+        requestId: res.payment_reference,
+        date: new Date().toISOString(),
+      }
+
+      if (res.status === 'pending' || outcome.isPending) {
+        navigate('/payments/pending', { state: statePayload })
+      } else {
+        navigate('/payments/receipt', { state: statePayload })
+      }
+    } catch (err: any) {
+      const serverMsg = err?.response?.data?.message || 'Incorrect PIN or payment failed. Try again.'
+      setPinError(serverMsg)
       setPin('')
     } finally {
       stopProcessing()

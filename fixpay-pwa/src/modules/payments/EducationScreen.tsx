@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/Button'
 import { BottomSheet } from '@/components/ui/BottomSheet'
 import { PinPad } from '@/components/ui/PinPad'
 import { Spinner } from '@/components/ui/Spinner'
+import { resolveVtpassCode } from '@/lib/vtpass-codes'
 
 const parseAmount = (amt: string | number | undefined | null): number => {
   if (!amt) return 0;
@@ -32,6 +33,7 @@ const schema = z.object({
   billersCode:   z.string().min(5, 'Enter exam number / profile ID'),
   variationCode: z.string().min(1, 'Select a service'),
   phone:         z.string().regex(/^0[789]\d{9}$/, 'Enter a valid phone number'),
+  amount:        z.number().min(1, 'Package has no price'),
 })
 type FormData = z.infer<typeof schema>
 
@@ -47,7 +49,7 @@ export function EducationScreen() {
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { serviceId: initialService, billersCode: '', variationCode: '', phone: '' },
+    defaultValues: { serviceId: initialService, billersCode: '', variationCode: '', phone: '', amount: 0 },
   })
   const serviceId = watch('serviceId')
   const variationCode = watch('variationCode')
@@ -57,6 +59,11 @@ export function EducationScreen() {
     queryFn: () => paymentsService.getVariations(serviceId),
   })
   const chosen = variations.find(v => (v.variationCode ?? (v as any).variation_code) === variationCode)
+
+  const onVariationSelect = (code: string, amountNaira: number) => {
+    setValue('variationCode', code)
+    setValue('amount', amountNaira)
+  }
 
   const onSubmit = (data: FormData) => { setPending(data); setPin(''); setPinError(''); setShowPin(true) }
 
@@ -69,14 +76,26 @@ export function EducationScreen() {
       const res = await paymentsService.education(pending)
       queryClient.invalidateQueries({ queryKey: ['wallet'] })
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
-      navigate('/payments/receipt', {
-        state: {
-          type: 'education', serviceId, exam: chosen?.name, amount_kobo: res.amount_kobo,
-          pin: res.Pin ?? res.purchased_code, requestId: res.payment_reference, date: new Date().toISOString(),
-        },
-      })
-    } catch {
-      setPinError('Incorrect PIN or purchase failed.')
+
+      const outcome = resolveVtpassCode(res.vtpass_code)
+      const statePayload = {
+        type: 'education',
+        serviceId,
+        exam: chosen?.name,
+        amount_kobo: res.amount_kobo,
+        pin: res.Pin ?? res.purchased_code,
+        requestId: res.payment_reference,
+        date: new Date().toISOString(),
+      }
+
+      if (res.status === 'pending' || outcome.isPending) {
+        navigate('/payments/pending', { state: statePayload })
+      } else {
+        navigate('/payments/receipt', { state: statePayload })
+      }
+    } catch (err: any) {
+      const serverMsg = err?.response?.data?.message || 'Incorrect PIN or purchase failed.'
+      setPinError(serverMsg)
       setPin(''); setSubmitting(false)
     }
   }
@@ -108,15 +127,16 @@ export function EducationScreen() {
             <p className="text-[13px] font-semibold text-gray-500 uppercase tracking-wide mb-2">Select Package</p>
             {varsLoading ? <Spinner /> : (
               <div className="flex flex-col gap-2 max-h-[240px] overflow-y-auto pr-1">
-                {variations.map(v => {
+                {variations.map((v, idx) => {
                   const code = v.variationCode ?? (v as any).variation_code
                   const amount = v.variationAmount ?? (v as any).variation_amount
+                  const amountNaira = parseAmount(amount)
                   return (
-                    <button key={code} type="button" onClick={() => setValue('variationCode', code)}
+                    <button key={code || idx} type="button" onClick={() => onVariationSelect(code, amountNaira)}
                       className="flex items-center justify-between bg-white rounded-[14px] px-4 py-3 border-2 transition-all pressable"
                       style={{ borderColor: variationCode === code ? 'var(--brand-primary)' : 'transparent' }}>
                       <span className="text-[15px] font-medium text-gray-800 text-left mr-2">{v.name}</span>
-                      <span className="text-[15px] font-bold shrink-0" style={{ color: 'var(--brand-primary)' }}>₦{parseAmount(amount).toLocaleString()}</span>
+                      <span className="text-[15px] font-bold shrink-0" style={{ color: 'var(--brand-primary)' }}>₦{amountNaira.toLocaleString()}</span>
                     </button>
                   )
                 })}

@@ -16,6 +16,7 @@ import { BottomSheet } from '@/components/ui/BottomSheet'
 import { useTransactionStore } from '@/store/transaction.store'
 import { PinPad } from '@/components/ui/PinPad'
 import { Spinner } from '@/components/ui/Spinner'
+import { resolveVtpassCode } from '@/lib/vtpass-codes'
 
 const parseAmount = (amt: string | number | undefined | null): number => {
   if (!amt) return 0;
@@ -84,17 +85,41 @@ export function TvScreen() {
     startProcessing()
     try {
       await authService.verifyPin(val)
+      // Always resolve a non-zero amount: renew uses verify result price, change uses variation price
+      const chosenAmountNaira = parseAmount(chosen?.variationAmount ?? (chosen as any)?.variation_amount ?? '0')
       const amount = subscriptionType === 'renew'
-        ? verifyResult?.renewalAmount ?? parseAmount(chosen?.variationAmount ?? (chosen as any)?.variation_amount ?? '0')
-        : parseAmount(chosen?.variationAmount ?? (chosen as any)?.variation_amount ?? '0')
-      const res = await paymentsService.tv({ ...pending, amount })
+        ? (verifyResult?.renewalAmount ?? chosenAmountNaira)
+        : chosenAmountNaira
+      const res = await paymentsService.tv({
+        serviceId: pending.serviceId,
+        billersCode: pending.billersCode,
+        variationCode: pending.variationCode,
+        subscriptionType: pending.subscriptionType,
+        amount,
+      })
       queryClient.invalidateQueries({ queryKey: ['wallet'] })
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
-      navigate('/payments/receipt', {
-        state: { type: 'tv', provider: serviceId, customerName: verifyResult?.customerName, smartcard: pending.billersCode, package: chosen?.name ?? 'Renewal', amount_kobo: res.amount_kobo, requestId: res.payment_reference, date: new Date().toISOString() },
-      })
-    } catch {
-      setPinError('Incorrect PIN or payment failed.')
+
+      const outcome = resolveVtpassCode(res.vtpass_code)
+      const statePayload = {
+        type: 'tv',
+        provider: serviceId,
+        customerName: verifyResult?.customerName,
+        smartcard: pending.billersCode,
+        package: chosen?.name ?? 'Renewal',
+        amount_kobo: res.amount_kobo,
+        requestId: res.payment_reference,
+        date: new Date().toISOString(),
+      }
+
+      if (res.status === 'pending' || outcome.isPending) {
+        navigate('/payments/pending', { state: statePayload })
+      } else {
+        navigate('/payments/receipt', { state: statePayload })
+      }
+    } catch (err: any) {
+      const serverMsg = err?.response?.data?.message || 'Incorrect PIN or payment failed.'
+      setPinError(serverMsg)
       setPin('')
     } finally {
       stopProcessing()

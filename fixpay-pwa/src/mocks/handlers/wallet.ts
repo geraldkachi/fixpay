@@ -9,6 +9,21 @@ export function addBalance(kobo: number) { balanceKobo += kobo }
 export function getBalance() { return balanceKobo }
 
 export const walletHandlers = [
+  // Laravel backend path for wallet details
+  http.get('/api/wallet', async () => {
+    await delay(300)
+    return HttpResponse.json({
+      id: mockWallet.id,
+      balance_kobo: balanceKobo,
+      ledger_balance_kobo: balanceKobo,
+      currency: mockWallet.currency,
+      status: mockWallet.status,
+      virtual_account_number: mockWallet.virtualAccount?.accountNumber ?? null,
+      virtual_account_bank: mockWallet.virtualAccount?.bankName ?? null,
+      virtual_account_bank_code: mockWallet.virtualAccount?.bankCode ?? null,
+    })
+  }),
+
   // Legacy path — kept for backward compat (FundWalletScreen still uses it)
   http.get('/api/wallet/me', async () => {
     await delay(400)

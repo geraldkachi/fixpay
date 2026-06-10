@@ -33,6 +33,7 @@ const ElectricityScreen = lazy(() => import('@/modules/payments/ElectricityScree
 const EducationScreen   = lazy(() => import('@/modules/payments/EducationScreen').then(m => ({ default: m.EducationScreen })))
 const InsuranceScreen   = lazy(() => import('@/modules/payments/InsuranceScreen').then(m => ({ default: m.InsuranceScreen })))
 const ReceiptScreen     = lazy(() => import('@/modules/payments/ReceiptScreen').then(m => ({ default: m.ReceiptScreen })))
+const PendingScreen     = lazy(() => import('@/modules/payments/PendingScreen').then(m => ({ default: m.PendingScreen })))
 
 // Send
 const SendScreen = lazy(() => import('@/modules/send/SendScreen').then(m => ({ default: m.SendScreen })))
@@ -122,6 +123,7 @@ const router = createBrowserRouter([
       { path: 'payments/education',    element: <EducationScreen /> },
       { path: 'payments/insurance',    element: <InsuranceScreen /> },
       { path: 'payments/receipt',      element: <ReceiptScreen /> },
+      { path: 'payments/pending',      element: <PendingScreen /> },
       { path: 'wallet/fund',                element: <FundWalletScreen /> },
       { path: 'wallet/transactions/:id',  element: <TransactionDetailScreen /> },
       { path: 'more/profile',             element: <ProfileScreen /> },
