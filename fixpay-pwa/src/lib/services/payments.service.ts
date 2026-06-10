@@ -97,16 +97,17 @@ function vtpassPayload(
 }
 
 function mapResponse(d: any, defaultAmountNaira: number): BillPaymentResponse {
+  const statusStr = (d.status || d.paymentStatus || d.providerStatus || '').toLowerCase()
   return {
-    payment_reference: d.requestId || d.paymentReference || d.payment_reference || '',
-    status: d.code === '000' ? 'delivered' : (d.code === '099' ? 'pending' : (d.status || 'failed')),
-    amount_kobo: d.amount ? Math.round(Number(d.amount) * 100) : (d.amount_kobo || Math.round(defaultAmountNaira * 100)),
+    payment_reference: d.payment_reference || d.paymentReference || d.requestId || '',
+    status: statusStr === 'completed' || d.code === '000' || statusStr === 'delivered' ? 'delivered' : (statusStr === 'pending' || statusStr === 'processing' || d.code === '099' ? 'pending' : 'failed'),
+    amount_kobo: d.amount_kobo || (d.amount ? Math.round(Number(d.amount) * 100) : Math.round(defaultAmountNaira * 100)),
     fee_kobo: d.fee_kobo || 0,
     token: d.token,
     units: d.units,
-    Pin: d.Pin || d.pin,
-    purchased_code: d.purchased_code,
-    vtpass_code: d.code || d.vtpass_code || (d.providerCode ?? undefined),
+    Pin: d.Pin || d.pin || d.token,
+    purchased_code: d.purchased_code || d.token,
+    vtpass_code: d.provider_code || d.providerCode || d.code || (statusStr === 'completed' || statusStr === 'delivered' ? '000' : (statusStr === 'pending' || statusStr === 'processing' ? '099' : '016')),
   }
 }
 
@@ -158,20 +159,20 @@ export const paymentsService = {
 
   // All bill payments
   airtime: (payload: AirtimePayload): Promise<BillPaymentResponse> =>
-    api.post<any>('/payments/airtime',
+    api.post<any>('/payments/vtpass',
       vtpassPayload(payload.serviceId, payload.amount, payload.phone),
       { headers: { 'X-Idempotency-Key': self.crypto.randomUUID() } }
     ).then(r => mapResponse(r.data, payload.amount)),
 
   data: (payload: DataPayload): Promise<BillPaymentResponse> =>
-    api.post<any>('/payments/data',
+    api.post<any>('/payments/vtpass',
       // phone = subscriber's mobile number (billersCode); amount = bundle price in Naira
       vtpassPayload(payload.serviceId, payload.amount, payload.billersCode, payload.billersCode, payload.variationCode),
       { headers: { 'X-Idempotency-Key': self.crypto.randomUUID() } }
     ).then(r => mapResponse(r.data, payload.amount)),
 
   tv: (payload: TvPayload): Promise<BillPaymentResponse> =>
-    api.post<any>('/payments/tv',
+    api.post<any>('/payments/vtpass',
       // subscription_type is required by VTPass for TV (TC-015c / TC-016c)
       {
         ...vtpassPayload(payload.serviceId, payload.amount, payload.billersCode, payload.billersCode, payload.variationCode),
@@ -181,35 +182,28 @@ export const paymentsService = {
     ).then(r => mapResponse(r.data, payload.amount)),
 
   electricity: (payload: ElectricityPayload): Promise<BillPaymentResponse> =>
-    api.post<any>('/payments/electricity',
+    api.post<any>('/payments/vtpass',
       vtpassPayload(payload.serviceId, payload.amount, payload.billersCode, payload.billersCode, payload.variationCode),
       { headers: { 'X-Idempotency-Key': self.crypto.randomUUID() } }
     ).then(r => mapResponse(r.data, payload.amount)),
 
   education: (payload: EducationPayload): Promise<BillPaymentResponse> =>
-    api.post<any>('/payments/education',
+    api.post<any>('/payments/vtpass',
       // billersCode = profile/exam ID; phone = contact number; amount = variation price
       vtpassPayload(payload.serviceId, payload.amount, payload.phone ?? payload.billersCode, payload.billersCode, payload.variationCode),
       { headers: { 'X-Idempotency-Key': self.crypto.randomUUID() } }
     ).then(r => mapResponse(r.data, payload.amount)),
 
   insurance: (payload: InsurancePayload): Promise<BillPaymentResponse> =>
-    api.post<any>('/payments/insurance',
+    api.post<any>('/payments/vtpass',
       // billersCode = vehicle plate / reference; phone = contact number; amount = plan price
       vtpassPayload(payload.serviceId, payload.amount, payload.phone ?? payload.billersCode, payload.billersCode, payload.variationCode),
       { headers: { 'X-Idempotency-Key': self.crypto.randomUUID() } }
     ).then(r => mapResponse(r.data, payload.amount)),
 
   requery: (paymentReference: string): Promise<BillPaymentResponse> =>
-    api.post<any>(`/payments/vtpass/${paymentReference}/requery`).then(r => {
+    api.get<any>(`/payments/vtpass/${paymentReference}`).then(r => {
       const d = r.data?.data || r.data
-      return {
-        payment_reference: d.paymentReference || paymentReference,
-        status: d.paymentStatus || d.providerStatus,
-        vtpass_code: d.providerCode,
-        amount_kobo: d.amount ? Math.round(Number(d.amount) * 100) : 0,
-        fee_kobo: 0,
-        purchased_code: d.providerMessage,
-      }
+      return mapResponse(d, 0)
     }),
 }

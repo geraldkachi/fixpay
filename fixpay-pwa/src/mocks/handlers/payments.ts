@@ -177,4 +177,40 @@ export const paymentHandlers = [
       }
     })
   }),
+
+  http.post('/api/payments/vtpass', async ({ request }) => {
+    await delay(1200)
+    const body = await request.json() as Record<string, any>
+    const serviceId = body.service_id
+    const amountKobo = Number(body.amount_kobo)
+    deductBalance(amountKobo)
+
+    const isPrepaid = body.variation_code === 'prepaid'
+    const isJamb = serviceId === 'jamb'
+
+    return HttpResponse.json({
+      payment_reference: 'FP-VTP-' + Math.random().toString(36).substring(2, 10).toUpperCase(),
+      status: 'COMPLETED',
+      token: isPrepaid ? '5024-8167-3921-4856-7301' : (isJamb ? 'Pin : 3678251321392432' : null),
+      units: isPrepaid ? `${(amountKobo / 4750).toFixed(1)} kWh` : null,
+      amount_kobo: amountKobo,
+      fee_kobo: 0,
+      code: '000',
+    })
+  }),
+
+  http.get('/api/payments/vtpass/:reference', async ({ params }) => {
+    await delay(600)
+    return HttpResponse.json({
+      payment_reference: params.reference,
+      service_id: 'airtime',
+      amount_kobo: 100000,
+      fee_kobo: 0,
+      status: 'COMPLETED',
+      token: null,
+      units: null,
+      completed_at: new Date().toISOString(),
+      failed_at: null,
+    })
+  }),
 ]
