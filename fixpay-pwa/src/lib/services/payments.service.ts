@@ -98,9 +98,13 @@ export const paymentsService = {
       params: { serviceID: serviceId },
     }).then(r => {
       const d = r.data
-      if (d.content?.variations) return d.content.variations
-      if (d.variations) return d.variations
-      return []
+      const rawVars = d.content?.variations || d.variations || []
+      return rawVars.map((v: any) => ({
+        variationCode: v.variationCode ?? v.variation_code ?? '',
+        name: v.name,
+        variationAmount: v.variationAmount ?? v.variation_amount ?? '0',
+        fixedPrice: v.fixedPrice ?? v.fixed_price ?? 'Yes',
+      }))
     }),
 
   // POST /api/payments/vtpass/verify (proxied by backend to VTpass)
@@ -111,8 +115,17 @@ export const paymentsService = {
       type:         payload.type,
     }).then(r => {
       const d = r.data
-      if (d.content && d.code !== undefined) return d.content as BillerVerify
-      return d as BillerVerify
+      const content = d.content || d
+      return {
+        customerName: content.customerName ?? content.Customer_Name ?? content.customer_name ?? '',
+        status: content.status ?? content.Status ?? '',
+        currentBouquet: content.currentBouquet ?? content.Current_Bouquet ?? content.current_bouquet ?? '',
+        renewalAmount: content.renewalAmount ?? content.Renewal_Amount ?? content.renewal_amount ?? undefined,
+        meterType: content.meterType ?? content.Meter_Type ?? content.meter_type ?? undefined,
+        accountType: content.accountType ?? content.Customer_Account_Type ?? content.customer_account_type ?? undefined,
+        address: content.address ?? content.Address ?? undefined,
+        meterNumber: content.meterNumber ?? content.Meter_Number ?? content.meter_number ?? undefined,
+      }
     }),
 
   // All bill payments → POST /api/payments/vtpass

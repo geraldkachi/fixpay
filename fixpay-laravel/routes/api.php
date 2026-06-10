@@ -76,6 +76,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::prefix('payments')->group(function () {
         Route::get('vtpass/services', [VtpassPaymentController::class, 'services']);
         Route::get('vtpass/variations', [VtpassPaymentController::class, 'variations']);
+        Route::post('verify', [VtpassPaymentController::class, 'verify']);
         Route::post('vtpass', [VtpassPaymentController::class, 'pay'])->middleware('idempotent');
         Route::get('vtpass/{reference}', [VtpassPaymentController::class, 'status']);
     });

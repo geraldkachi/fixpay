@@ -52,6 +52,40 @@ class VtpassPaymentController extends Controller
         );
     }
 
+    /** POST /api/payments/verify */
+    public function verify(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'service_id' => 'required|string',
+            'billers_code' => 'required|string',
+            'type' => 'nullable|string',
+        ]);
+
+        $client = new Client(['timeout' => 15, 'verify' => false]);
+        
+        $payload = [
+            'billersCode' => $data['billers_code'],
+            'serviceID' => $data['service_id'],
+        ];
+
+        if (!empty($data['type'])) {
+            $payload['type'] = $data['type'];
+        }
+
+        $response = $client->post(config('services.vtpass.base_url') . '/merchant-verify', [
+            'headers' => [
+                'api-key' => config('services.vtpass.api_key'),
+                'secret-key' => config('services.vtpass.secret_key'),
+                'Content-Type' => 'application/json',
+            ],
+            'json' => $payload,
+        ]);
+
+        return response()->json(
+            json_decode($response->getBody()->getContents(), true)
+        );
+    }
+
     /** POST /api/payments/vtpass */
     public function pay(Request $request): JsonResponse
     {

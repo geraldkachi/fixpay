@@ -15,6 +15,12 @@ import { BottomSheet } from '@/components/ui/BottomSheet'
 import { PinPad } from '@/components/ui/PinPad'
 import { Spinner } from '@/components/ui/Spinner'
 
+const parseAmount = (amt: string | number | undefined | null): number => {
+  if (!amt) return 0;
+  const parsed = typeof amt === 'number' ? amt : parseFloat(amt);
+  return isNaN(parsed) ? 0 : parsed;
+};
+
 const SERVICES = [
   { id: 'jamb',              label: 'JAMB' },
   { id: 'waec',              label: 'WAEC Result' },
@@ -50,7 +56,7 @@ export function EducationScreen() {
     queryKey: ['variations', serviceId],
     queryFn: () => paymentsService.getVariations(serviceId),
   })
-  const chosen = variations.find(v => v.variationCode === variationCode)
+  const chosen = variations.find(v => (v.variationCode ?? (v as any).variation_code) === variationCode)
 
   const onSubmit = (data: FormData) => { setPending(data); setPin(''); setPinError(''); setShowPin(true) }
 
@@ -101,22 +107,26 @@ export function EducationScreen() {
           <div>
             <p className="text-[13px] font-semibold text-gray-500 uppercase tracking-wide mb-2">Select Package</p>
             {varsLoading ? <Spinner /> : (
-              <div className="flex flex-col gap-2">
-                {variations.map(v => (
-                  <button key={v.variationCode} type="button" onClick={() => setValue('variationCode', v.variationCode)}
-                    className="flex items-center justify-between bg-white rounded-[14px] px-4 py-3 border-2 transition-all pressable"
-                    style={{ borderColor: variationCode === v.variationCode ? 'var(--brand-primary)' : 'transparent' }}>
-                    <span className="text-[15px] font-medium text-gray-800">{v.name}</span>
-                    <span className="text-[15px] font-bold" style={{ color: 'var(--brand-primary)' }}>₦{parseFloat(v.variationAmount).toLocaleString()}</span>
-                  </button>
-                ))}
+              <div className="flex flex-col gap-2 max-h-[240px] overflow-y-auto pr-1">
+                {variations.map(v => {
+                  const code = v.variationCode ?? (v as any).variation_code
+                  const amount = v.variationAmount ?? (v as any).variation_amount
+                  return (
+                    <button key={code} type="button" onClick={() => setValue('variationCode', code)}
+                      className="flex items-center justify-between bg-white rounded-[14px] px-4 py-3 border-2 transition-all pressable"
+                      style={{ borderColor: variationCode === code ? 'var(--brand-primary)' : 'transparent' }}>
+                      <span className="text-[15px] font-medium text-gray-800 text-left mr-2">{v.name}</span>
+                      <span className="text-[15px] font-bold shrink-0" style={{ color: 'var(--brand-primary)' }}>₦{parseAmount(amount).toLocaleString()}</span>
+                    </button>
+                  )
+                })}
               </div>
             )}
             {errors.variationCode && <p className="text-ios-red text-[13px] mt-1">{errors.variationCode.message}</p>}
           </div>
 
           <Button type="submit" fullWidth disabled={!chosen}>
-            {chosen ? `Pay ₦${parseFloat(chosen.variationAmount).toLocaleString()}` : 'Continue'}
+            {chosen ? `Pay ₦${parseAmount(chosen.variationAmount ?? (chosen as any).variation_amount).toLocaleString()}` : 'Continue'}
           </Button>
         </form>
       </div>
