@@ -10,8 +10,6 @@ import { HeartIcon as HeartSolid } from '@heroicons/react/24/solid'
 import { useFavouritesStore } from '@/store/favourites.store'
 import type { Transaction } from '@/types'
 import { toBlob } from 'html-to-image'
-import { useFavouritesStore } from '@/store/favourites.store'
-import type { Transaction } from '@/types'
 
 interface ReceiptState {
   type: string
