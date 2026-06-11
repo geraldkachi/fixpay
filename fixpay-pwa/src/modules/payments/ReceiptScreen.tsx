@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/solid'
-import { ShareIcon, HomeIcon, DocumentDuplicateIcon, PrinterIcon, PhotoIcon } from '@heroicons/react/24/outline'
+import { ShareIcon, HomeIcon, DocumentDuplicateIcon, PrinterIcon, PhotoIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline'
 import { formatCurrency, formatDateFull } from '@/lib/utils'
 import { Button } from '@/components/ui/Button'
 import { BottomSheet } from '@/components/ui/BottomSheet'
@@ -221,6 +221,9 @@ export function ReceiptScreen() {
             {isFav ? 'Saved to Favourites' : 'Save to Favourites'}
           </Button>
         )}
+        <Button variant="outline" fullWidth onClick={() => navigate('/more/disputes/new', { state: { prefillTxId: r.requestId, txDate: r.date, type: r.type === 'transfer_out' ? 'TRANSFER' : 'VTPASS' } })}>
+          <ExclamationTriangleIcon className="w-4 h-4" /> Raise Dispute
+        </Button>
         <Button fullWidth onClick={() => navigate('/home', { replace: true })}>
           <HomeIcon className="w-4 h-4" /> Back to Home
         </Button>

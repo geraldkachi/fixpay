@@ -50,6 +50,7 @@ const SecurityScreen      = lazy(() => import('@/modules/more/SecurityScreen').t
 const MandatesScreen      = lazy(() => import('@/modules/more/MandatesScreen').then(m => ({ default: m.MandatesScreen })))
 const DisputesScreen      = lazy(() => import('@/modules/more/DisputesScreen').then(m => ({ default: m.DisputesScreen })))
 const DisputeDetailScreen = lazy(() => import('@/modules/more/DisputeDetailScreen').then(m => ({ default: m.DisputeDetailScreen })))
+const RaiseDisputeScreen  = lazy(() => import('@/modules/more/RaiseDisputeScreen').then(m => ({ default: m.RaiseDisputeScreen })))
 const PortalLaunchpadScreen = lazy(() => import('@/modules/dev/PortalLaunchpadScreen').then(m => ({ default: m.PortalLaunchpadScreen })))
 
 // ─── Guards ────────────────────────────────────────────────────────────────
@@ -130,6 +131,7 @@ const router = createBrowserRouter([
       { path: 'more/security',            element: <SecurityScreen /> },
       { path: 'more/mandates',         element: <MandatesScreen /> },
       { path: 'more/disputes',         element: <DisputesScreen /> },
+      { path: 'more/disputes/new',     element: <RaiseDisputeScreen /> },
       { path: 'more/disputes/:id',     element: <DisputeDetailScreen /> },
       // Protected with bottom nav (AppShell)
       {

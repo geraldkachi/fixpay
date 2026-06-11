@@ -11,9 +11,9 @@ export function DisputesScreen() {
   const navigate = useNavigate()
   const { data, isLoading } = useQuery({
     queryKey: ['disputes'],
-    queryFn: () => api.get('/disputes').then(r => (r.data.data ?? r.data) as { content: Dispute[] }),
+    queryFn: () => api.get('/disputes').then(r => r.data.data ?? []),
   })
-  const disputes = data?.content ?? []
+  const disputes = data ?? []
 
   return (
     <div className="flex flex-col h-[100dvh] bg-[#F2F2F7]">
@@ -24,18 +24,18 @@ export function DisputesScreen() {
             <div className="bg-white rounded-[16px] p-8 text-center text-gray-400">No disputes raised</div>
           ) : (
             <div className="flex flex-col gap-3">
-              {disputes.map(d => {
+              {disputes.map((d: any) => {
                 const { label, variant } = statusBadge(d.status)
                 return (
                   <div key={d.id} className="bg-white rounded-[20px] p-4 pressable cursor-pointer" onClick={() => navigate(`/more/disputes/${d.id}`)}>
                     <div className="flex items-start justify-between">
-                      <p className="font-bold text-gray-900 flex-1 truncate pr-2">{d.transaction?.description ?? 'Transaction'}</p>
+                      <p className="font-bold text-gray-900 flex-1 truncate pr-2">{d.ticket_number || d.category}</p>
                       <Badge variant={variant}>{label}</Badge>
                     </div>
-                    <p className="text-[13px] text-gray-500 mt-1">{d.description.slice(0, 80)}…</p>
+                    <p className="text-[13px] text-gray-500 mt-1">{d.reason.slice(0, 80)}…</p>
                     <div className="flex items-center justify-between mt-2">
-                      <p className="text-[12px] text-gray-400">{formatDateShort(d.createdAt)}</p>
-                      {d.transaction && <p className="text-[13px] font-semibold text-gray-700">{formatCurrency(d.transaction.amountKobo)}</p>}
+                      <p className="text-[12px] text-gray-400">{formatDateShort(d.created_at)}</p>
+                      {d.related_payment_id && <p className="text-[13px] font-semibold text-gray-700">Ref: {d.related_payment_id}</p>}
                     </div>
                   </div>
                 )

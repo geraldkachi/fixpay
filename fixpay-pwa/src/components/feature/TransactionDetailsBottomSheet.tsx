@@ -1,11 +1,12 @@
 import { BottomSheet } from '@/components/ui/BottomSheet'
 import { Badge, statusBadge } from '@/components/ui/Badge'
+import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
 import type { Transaction } from '@/types'
 import { formatCurrency, formatDateFull, cn } from '@/lib/utils'
 import { useState, useRef } from 'react'
 import { toBlob } from 'html-to-image'
-import { ShareIcon, DocumentDuplicateIcon, PrinterIcon, PhotoIcon } from '@heroicons/react/24/outline'
+import { ShareIcon, DocumentDuplicateIcon, PrinterIcon, PhotoIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline'
 
 interface TransactionDetailsBottomSheetProps {
   tx: Transaction | null
@@ -14,6 +15,7 @@ interface TransactionDetailsBottomSheetProps {
 }
 
 export function TransactionDetailsBottomSheet({ tx, open, onClose }: TransactionDetailsBottomSheetProps) {
+  const navigate = useNavigate()
   const [copied, setCopied] = useState(false)
   const [showShare, setShowShare] = useState(false)
   const [isSharing, setIsSharing] = useState(false)
@@ -187,6 +189,9 @@ export function TransactionDetailsBottomSheet({ tx, open, onClose }: Transaction
         </div>
         </div>
 
+        <Button variant="outline" fullWidth onClick={() => navigate('/more/disputes/new', { state: { prefillTxId: tx.reference, txDate: tx.createdAt, type: tx.type === 'transfer_out' ? 'TRANSFER' : 'VTPASS' } })} className="mt-4 print:hidden">
+          <ExclamationTriangleIcon className="w-4 h-4 mr-2" /> Raise Dispute
+        </Button>
         <Button variant="outline" fullWidth onClick={() => setShowShare(true)} className="mt-4 print:hidden">
           <ShareIcon className="w-4 h-4 mr-2" /> Share Details
         </Button>

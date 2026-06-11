@@ -20,6 +20,9 @@ class DisputeController extends Controller
             'related_payment_type' => 'nullable|in:VTPASS,TRANSFER',
             'category'             => 'required|in:WRONG_AMOUNT,NOT_DELIVERED,UNAUTHORIZED,DUPLICATE,OTHER',
             'reason'               => 'required|string|max:1000',
+            'phone_number'         => 'required|string',
+            'email'                => 'required|email',
+            'transaction_date'     => 'nullable|date',
         ]);
 
         $user = $request->user();
@@ -55,10 +58,13 @@ class DisputeController extends Controller
             'sla_deadline' => now()->addBusinessDays(3),
         ]));
 
+        \Illuminate\Support\Facades\Log::info("DisputeAcknowledged Email Stub: Dispute {$dispute->ticket_number} raised by {$data['email']}");
+
         return response()->json([
-            'dispute_id' => $dispute->id,
-            'status'     => $dispute->status,
-            'sla_deadline' => $dispute->sla_deadline,
+            'dispute_id'    => $dispute->id,
+            'ticket_number' => $dispute->ticket_number,
+            'status'        => $dispute->status,
+            'sla_deadline'  => $dispute->sla_deadline,
         ], 201);
     }
 

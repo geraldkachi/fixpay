@@ -14,12 +14,26 @@ class Dispute extends Model
         'user_id', 'tenant_id', 'related_payment_id', 'related_payment_type',
         'category', 'reason', 'status', 'resolution_notes',
         'assigned_to', 'sla_deadline', 'resolved_at',
+        'ticket_number', 'phone_number', 'email', 'transaction_date', 'refund_processed'
     ];
 
     protected $casts = [
         'sla_deadline' => 'datetime',
         'resolved_at' => 'datetime',
+        'transaction_date' => 'datetime',
+        'refund_processed' => 'boolean',
     ];
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($dispute) {
+            if (empty($dispute->ticket_number)) {
+                $dispute->ticket_number = 'DISP-' . now()->format('Ymd') . '-' . strtoupper(\Illuminate\Support\Str::random(6));
+            }
+        });
+    }
 
     public function user(): BelongsTo
     {
