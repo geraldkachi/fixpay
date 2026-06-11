@@ -28,11 +28,17 @@ class DisputeController extends Controller
         $user = $request->user();
 
         if (!empty($data['related_payment_id']) && !empty($data['related_payment_type'])) {
+            $paymentId = $data['related_payment_id'];
+            $isUuid = \Illuminate\Support\Str::isUuid($paymentId);
+            
             if ($data['related_payment_type'] === 'VTPASS') {
                 $paymentExists = VtpassPayment::where('user_id', $user->id)
-                    ->where(function ($query) use ($data) {
-                        $query->where('id', $data['related_payment_id'])
-                              ->orWhere('payment_reference', $data['related_payment_id']);
+                    ->where(function ($query) use ($paymentId, $isUuid) {
+                        if ($isUuid) {
+                            $query->where('id', $paymentId)->orWhere('payment_reference', $paymentId);
+                        } else {
+                            $query->where('payment_reference', $paymentId);
+                        }
                     })
                     ->exists();
                 if (!$paymentExists) {
@@ -40,9 +46,12 @@ class DisputeController extends Controller
                 }
             } elseif ($data['related_payment_type'] === 'TRANSFER') {
                 $transferExists = Transfer::where('user_id', $user->id)
-                    ->where(function ($query) use ($data) {
-                        $query->where('id', $data['related_payment_id'])
-                              ->orWhere('transfer_reference', $data['related_payment_id']);
+                    ->where(function ($query) use ($paymentId, $isUuid) {
+                        if ($isUuid) {
+                            $query->where('id', $paymentId)->orWhere('transfer_reference', $paymentId);
+                        } else {
+                            $query->where('transfer_reference', $paymentId);
+                        }
                     })
                     ->exists();
                 if (!$transferExists) {
