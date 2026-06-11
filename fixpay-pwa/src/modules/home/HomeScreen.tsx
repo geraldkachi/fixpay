@@ -1,12 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { BellIcon } from '@heroicons/react/24/outline'
-import { useAuthStore } from '@/store/auth.store'
 import { BalanceCard } from '@/components/feature/BalanceCard'
 import { ServiceGrid } from '@/components/feature/ServiceGrid'
 import { TransactionItem, txIcon } from '@/components/feature/TransactionItem'
-import { Logo } from '@/components/ui/Logo'
 import { walletService } from '@/lib/services/wallet.service'
 import { TransactionDetailsBottomSheet } from '@/components/feature/TransactionDetailsBottomSheet'
 import { RepeatPaymentBottomSheet } from '@/components/feature/RepeatPaymentBottomSheet'
@@ -17,7 +14,6 @@ import { Badge, statusBadge } from '@/components/ui/Badge'
 import { HeartIcon as HeartSolid } from '@heroicons/react/24/solid'
 
 export function HomeScreen() {
-  const { user } = useAuthStore()
   const navigate = useNavigate()
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null)
   const [repeatTx, setRepeatTx] = useState<Transaction | null>(null)
@@ -25,17 +21,6 @@ export function HomeScreen() {
 
   return (
     <div className="flex flex-col bg-[#F2F2F7] min-h-[100dvh] pb-nav">
-      {/* Header */}
-      <div className="pt-safe px-4 pb-4 bg-[#F2F2F7] flex items-center justify-between">
-        <Logo size="sm" />
-        <div className="flex-1 min-w-0 mx-3">
-          <p className="text-[13px] text-gray-400 leading-tight">Welcome back,</p>
-          <h1 className="text-[18px] font-bold text-gray-900 truncate">{user?.firstName ?? 'there'} 👋</h1>
-        </div>
-        <button className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm pressable shrink-0">
-          <BellIcon className="w-5 h-5 text-gray-500" />
-        </button>
-      </div>
 
       {/* Balance card */}
       <div className="animate-slide-up">
