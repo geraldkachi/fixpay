@@ -9,7 +9,7 @@ interface TransactionItemProps {
   onClick?: () => void
 }
 
-function txIcon(tx: Transaction) {
+export function txIcon(tx: Transaction) {
   if (tx.type === 'transfer_in')    return <div className="w-10 h-10 rounded-full bg-green-100  flex items-center justify-center shrink-0"><ArrowDownLeftIcon  className="w-5 h-5 text-green-600" /></div>
   if (tx.type === 'transfer_out')   return <div className="w-10 h-10 rounded-full bg-red-100    flex items-center justify-center shrink-0"><ArrowUpRightIcon   className="w-5 h-5 text-red-600"   /></div>
   if (tx.type === 'wallet_funding') return <div className="w-10 h-10 rounded-full bg-blue-100   flex items-center justify-center shrink-0"><WalletIcon          className="w-5 h-5 text-blue-600"  /></div>

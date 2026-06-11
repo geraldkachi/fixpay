@@ -47,4 +47,22 @@ export const transferHandlers = [
     deductBalance(Number(body.amountKobo))
     return HttpResponse.json({ status: 'completed', message: 'Transfer successful' })
   }),
+
+  http.get('/api/transfers/:reference', async ({ params }) => {
+    await delay(600)
+    return HttpResponse.json({
+      transfer_reference: params.reference,
+      transfer_type: 'bank',
+      amount_kobo: 250000,
+      fee_kobo: 5250,
+      status: 'completed',
+      narration: 'Transfer to Fatima Bello',
+      bank_name: 'Guaranty Trust Bank',
+      bank_code: '058',
+      account_number: '0123456789',
+      account_name: 'FATIMA BELLO',
+      completed_at: new Date().toISOString(),
+      failed_at: null,
+    })
+  }),
 ]

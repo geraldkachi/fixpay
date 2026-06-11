@@ -1,14 +1,19 @@
 import { useNavigate, useLocation } from 'react-router-dom'
-import { CheckCircleIcon } from '@heroicons/react/24/solid'
+import { CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/solid'
 import { ShareIcon, HomeIcon } from '@heroicons/react/24/outline'
 import { formatCurrency, formatDateFull } from '@/lib/utils'
 import { Button } from '@/components/ui/Button'
+import { HeartIcon as HeartOutline } from '@heroicons/react/24/outline'
+import { HeartIcon as HeartSolid } from '@heroicons/react/24/solid'
+import { useFavouritesStore } from '@/store/favourites.store'
+import type { Transaction } from '@/types'
 
 interface ReceiptState {
   type: string
   amount_kobo: number   // kobo — from API response; formatCurrency expects kobo
   date: string
   requestId?: string
+  status?: string
   // Electricity
   token?: string
   units?: string
@@ -37,16 +42,53 @@ export function ReceiptScreen() {
   if (!r) { navigate('/home', { replace: true }); return null }
 
   const isPrepaidElectricity = r.type === 'electricity' && r.meterType === 'prepaid'
+  const isFailed = r.status === 'FAILED' || r.status === 'failed'
+
+  const { addFavourite, removeFavourite, isFavourite } = useFavouritesStore()
+  const isFav = r.requestId ? isFavourite(r.requestId) : false
+  const canBeSaved = r.type !== 'transfer_in' && r.type !== 'wallet_funding' && !!r.requestId
+
+  const toggleFavourite = () => {
+    if (!r.requestId) return
+    if (isFav) {
+      removeFavourite(r.requestId)
+    } else {
+      const typeStr = r.type === 'bank' || r.type === 'wallet' ? 'transfer_out' : 'bill_payment'
+      let desc = 'Payment'
+      if (r.type === 'airtime') desc = `${r.network?.toUpperCase()} Airtime`
+      if (r.type === 'data') desc = `${r.network?.toUpperCase()} Data`
+      if (r.type === 'tv') desc = `${(r.provider ?? '').toUpperCase()} Subscription`
+      if (r.type === 'electricity') desc = `${(r.provider ?? '').replace(/-/g, ' ')} Electricity`
+      if (r.type === 'education') desc = `${r.exam ?? 'Education'} Payment`
+      if (typeStr === 'transfer_out') desc = `Transfer to ${r.customerName || r.phone || ''}`
+
+      const fakeTx: Transaction = {
+        id: r.requestId,
+        type: typeStr,
+        amountKobo: r.amount_kobo,
+        feeKobo: 0,
+        status: 'completed',
+        reference: r.requestId,
+        description: desc,
+        counterpartyName: r.customerName || r.phone || r.meter || r.smartcard,
+        serviceId: r.serviceId || r.network || r.provider,
+        createdAt: r.date,
+      }
+      addFavourite(fakeTx)
+    }
+  }
 
   return (
     <div className="flex flex-col h-[100dvh] bg-[#F2F2F7]">
       <div className="flex-1 overflow-y-auto no-scrollbar px-4 pt-safe pb-8">
-        {/* Success icon */}
+        {/* Status icon */}
         <div className="flex flex-col items-center pt-10 pb-6 animate-scale-in">
-          <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mb-4">
-            <CheckCircleIcon className="w-12 h-12 text-ios-green" />
+          <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-4 ${isFailed ? 'bg-red-100' : 'bg-green-100'}`}>
+            {isFailed ? <XCircleIcon className="w-12 h-12 text-ios-red" /> : <CheckCircleIcon className="w-12 h-12 text-ios-green" />}
           </div>
-          <h1 className="text-[22px] font-black text-gray-900">Payment Successful</h1>
+          <h1 className={`text-[22px] font-black ${isFailed ? 'text-ios-red' : 'text-gray-900'}`}>
+            {isFailed ? 'Payment Failed' : 'Payment Successful'}
+          </h1>
           <p className="text-[14px] text-gray-500 mt-1">{formatDateFull(r.date)}</p>
         </div>
 
@@ -97,7 +139,7 @@ export function ReceiptScreen() {
             <Row label="Customer" value={r.customerName ?? ''} />
             <Row label="Meter" value={r.meter ?? ''} />
             <Row label="Type" value={r.meterType ?? ''} last={!r.token} />
-            {!isPrepaidElectricity && <Row label="Status" value="Payment Posted" last />}
+            {!isPrepaidElectricity && <Row label="Status" value={isFailed ? 'Failed' : 'Payment Posted'} last />}
           </>}
           {r.type === 'education' && <>
             <Row label="Exam" value={r.exam ?? ''} last />
@@ -110,6 +152,12 @@ export function ReceiptScreen() {
         <Button variant="outline" fullWidth onClick={() => {}} >
           <ShareIcon className="w-4 h-4" /> Share Receipt
         </Button>
+        {canBeSaved && (
+          <Button variant="outline" fullWidth onClick={toggleFavourite} className={isFav ? "text-red-500 border-red-200 bg-red-50" : ""}>
+            {isFav ? <HeartSolid className="w-4 h-4 text-red-500" /> : <HeartOutline className="w-4 h-4" />} 
+            {isFav ? 'Saved to Favourites' : 'Save to Favourites'}
+          </Button>
+        )}
         <Button fullWidth onClick={() => navigate('/home', { replace: true })}>
           <HomeIcon className="w-4 h-4" /> Back to Home
         </Button>

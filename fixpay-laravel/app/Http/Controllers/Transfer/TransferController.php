@@ -98,6 +98,7 @@ class TransferController extends Controller
             'status' => $transfer->status,
             'narration' => $transfer->narration,
             'bank_name' => $transfer->bank_name,
+            'bank_code' => $transfer->bank_code,
             'account_number' => $transfer->account_number,
             'account_name' => $transfer->account_name,
             'completed_at' => $transfer->completed_at,

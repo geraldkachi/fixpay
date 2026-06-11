@@ -209,6 +209,9 @@ export const paymentHandlers = [
       status: 'COMPLETED',
       token: null,
       units: null,
+      phone: '08012345678',
+      billers_code: '08012345678',
+      variation_code: '',
       completed_at: new Date().toISOString(),
       failed_at: null,
     })

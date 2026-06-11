@@ -154,6 +154,9 @@ class VtpassPaymentController extends Controller
             'units' => $payment->units,
             'provider_code' => $payment->provider_code,
             'vtpass_code' => $payment->provider_code,
+            'phone' => $payment->phone,
+            'billers_code' => $payment->billersCode,
+            'variation_code' => $payment->variation_code,
             'completed_at' => $payment->completed_at,
             'failed_at' => $payment->failed_at,
         ]);
