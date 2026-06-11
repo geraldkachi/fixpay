@@ -64,7 +64,7 @@ class DisputeController extends Controller
             'user_id'      => $user->id,
             'tenant_id'    => $user->tenant_id,
             'status'       => 'OPEN',
-            'sla_deadline' => now()->addBusinessDays(3),
+            'sla_deadline' => now()->addWeekdays(3),
         ]));
 
         \Illuminate\Support\Facades\Log::info("DisputeAcknowledged Email Stub: Dispute {$dispute->ticket_number} raised by {$data['email']}");
