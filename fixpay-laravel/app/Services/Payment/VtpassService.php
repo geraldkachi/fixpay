@@ -28,13 +28,14 @@ class VtpassService
      */
     public function initiate(
         AppUser $user,
-        Wallet $wallet,
+        ?Wallet $wallet,
         string $serviceId,
         int $amountKobo,
         string $phone,
         ?string $billersCode = null,
         ?string $variationCode = null,
         array $extra = [],
+        string $paymentMethod = 'wallet',
     ): VtpassPayment {
         $idempotencyKey = $extra['idempotency_key'] ?? Str::uuid()->toString();
 
@@ -51,16 +52,21 @@ class VtpassService
         return DB::transaction(function () use (
             $user, $wallet, $serviceId, $amountKobo, $phone,
             $billersCode, $variationCode, $paymentReference, $idempotencyKey,
-            $feeKobo, $rail
+            $feeKobo, $rail, $paymentMethod
         ) {
             $totalDebit = $amountKobo + $feeKobo;
 
-            // Debit wallet (raises exception if insufficient)
-            $this->walletService->debit($wallet, $totalDebit, $paymentReference, "Bill payment: {$serviceId}");
+            if ($paymentMethod === 'wallet') {
+                if (!$wallet) {
+                    throw new \Exception('Wallet is required for wallet payment method');
+                }
+                // Debit wallet (raises exception if insufficient)
+                $this->walletService->debit($wallet, $totalDebit, $paymentReference, "Bill payment: {$serviceId}");
+            }
 
             $payment = VtpassPayment::create([
                 'user_id'          => $user->id,
-                'wallet_id'        => $wallet->id,
+                'wallet_id'        => $wallet?->id,
                 'tenant_id'        => $user->tenant_id,
                 'payment_reference'=> $paymentReference,
                 'idempotency_key'  => $idempotencyKey,

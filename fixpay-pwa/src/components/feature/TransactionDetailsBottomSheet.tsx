@@ -1,8 +1,11 @@
 import { BottomSheet } from '@/components/ui/BottomSheet'
 import { Badge, statusBadge } from '@/components/ui/Badge'
+import { Button } from '@/components/ui/Button'
 import type { Transaction } from '@/types'
 import { formatCurrency, formatDateFull, cn } from '@/lib/utils'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
+import { toBlob } from 'html-to-image'
+import { ShareIcon, DocumentDuplicateIcon, PrinterIcon, PhotoIcon } from '@heroicons/react/24/outline'
 
 interface TransactionDetailsBottomSheetProps {
   tx: Transaction | null
@@ -12,6 +15,10 @@ interface TransactionDetailsBottomSheetProps {
 
 export function TransactionDetailsBottomSheet({ tx, open, onClose }: TransactionDetailsBottomSheetProps) {
   const [copied, setCopied] = useState(false)
+  const [showShare, setShowShare] = useState(false)
+  const [isSharing, setIsSharing] = useState(false)
+  const receiptRef = useRef<HTMLDivElement>(null)
+
   if (!tx) return null
 
   const isCredit = tx.type === 'transfer_in' || tx.type === 'wallet_funding'
@@ -27,11 +34,66 @@ export function TransactionDetailsBottomSheet({ tx, open, onClose }: Transaction
     navigator.clipboard.writeText(code)
   }
 
+  const handleShareImage = async () => {
+    if (!receiptRef.current) return
+    setIsSharing(true)
+    try {
+      const blob = await toBlob(receiptRef.current, { cacheBust: true, style: { backgroundColor: '#ffffff' } })
+      if (!blob) throw new Error('Failed to generate image')
+      
+      const file = new File([blob], `receipt_${tx.reference || 'payment'}.png`, { type: 'image/png' })
+      
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          title: 'Transaction Details',
+          files: [file],
+        })
+      } else {
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `receipt_${tx.reference || 'payment'}.png`
+        a.click()
+        URL.revokeObjectURL(url)
+      }
+    } catch (err) {
+      alert('Could not share image. Please try again.')
+    } finally {
+      setIsSharing(false)
+      setShowShare(false)
+    }
+  }
+
+  const handlePrint = () => {
+    setShowShare(false)
+    setTimeout(() => window.print(), 300)
+  }
+
+  const handleCopyDetails = async () => {
+    try {
+      let text = `Transaction Details\n`
+      text += `Status: ${tx.status}\n`
+      text += `Amount: ${formatCurrency(tx.amountKobo)}\n`
+      text += `Description: ${tx.description}\n`
+      text += `Reference: ${tx.reference}\n`
+      text += `Date: ${formatDateFull(tx.createdAt)}\n`
+      if (tx.token) text += `Token: ${tx.token}\n`
+      if (tx.Pin) text += `PIN: ${tx.Pin}\n`
+      await navigator.clipboard.writeText(text)
+      alert('Transaction details copied to clipboard')
+    } catch {
+      alert('Failed to copy to clipboard')
+    } finally {
+      setShowShare(false)
+    }
+  }
+
   return (
     <BottomSheet open={open} onClose={onClose} title="Transaction Details">
       <div className="px-4 pt-2 pb-6 flex flex-col items-center">
-        {/* Status indicator */}
-        <div className="mb-4">
+        <div ref={receiptRef} className="w-full flex flex-col items-center bg-white">
+          {/* Status indicator */}
+          <div className="mb-4">
           <Badge variant={variant} className="text-[12px] px-3 py-1 font-semibold">
             {label}
           </Badge>
@@ -123,7 +185,26 @@ export function TransactionDetailsBottomSheet({ tx, open, onClose }: Transaction
             </div>
           )}
         </div>
+        </div>
+
+        <Button variant="outline" fullWidth onClick={() => setShowShare(true)} className="mt-4 print:hidden">
+          <ShareIcon className="w-4 h-4 mr-2" /> Share Details
+        </Button>
       </div>
+
+      <BottomSheet open={showShare} onClose={() => setShowShare(false)} title="Share Transaction">
+        <div className="flex flex-col gap-3 p-4 pb-8">
+          <Button variant="outline" fullWidth onClick={handleShareImage} disabled={isSharing} className="justify-start px-6 font-semibold">
+            <PhotoIcon className="w-5 h-5 mr-3" /> {isSharing ? 'Generating Image...' : 'Share as Image'}
+          </Button>
+          <Button variant="outline" fullWidth onClick={handlePrint} className="justify-start px-6 font-semibold">
+            <PrinterIcon className="w-5 h-5 mr-3" /> Save as PDF / Print
+          </Button>
+          <Button variant="outline" fullWidth onClick={handleCopyDetails} className="justify-start px-6 font-semibold">
+            <DocumentDuplicateIcon className="w-5 h-5 mr-3" /> Copy Details
+          </Button>
+        </div>
+      </BottomSheet>
     </BottomSheet>
   )
 }

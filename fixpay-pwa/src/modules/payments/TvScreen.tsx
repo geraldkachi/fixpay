@@ -17,6 +17,7 @@ import { useTransactionStore } from '@/store/transaction.store'
 import { PinPad } from '@/components/ui/PinPad'
 import { Spinner } from '@/components/ui/Spinner'
 import { resolveVtpassCode } from '@/lib/vtpass-codes'
+import { PaymentMethodSelector, type PaymentMethod } from '@/components/feature/PaymentMethodSelector'
 
 const parseAmount = (amt: string | number | undefined | null): number => {
   if (!amt) return 0;
@@ -48,6 +49,7 @@ export function TvScreen() {
   const [verifying, setVerifying] = useState(false)
   const [verifyError, setVerifyError] = useState('')
   const [pending, setPending] = useState<FormData | null>(null)
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('wallet')
   const { isProcessing, startProcessing, stopProcessing } = useTransactionStore()
 
   const { register, handleSubmit, setValue, watch, formState: { errors }, getValues } = useForm<FormData>({
@@ -77,7 +79,59 @@ export function TvScreen() {
     } finally { setVerifying(false) }
   }
 
-  const onSubmit = (data: FormData) => { setPending(data); setPin(''); setPinError(''); setShowPin(true) }
+  const onSubmit = async (data: FormData) => {
+    setPending(data)
+    if (paymentMethod === 'wallet') {
+      setPin('')
+      setPinError('')
+      setShowPin(true)
+    } else {
+      startProcessing()
+      try {
+        const chosenAmountNaira = parseAmount(chosen?.variationAmount ?? (chosen as any)?.variation_amount ?? '0')
+        const amount = subscriptionType === 'renew'
+          ? (verifyResult?.renewalAmount ?? chosenAmountNaira)
+          : chosenAmountNaira
+
+        const initRes = await paymentsService.alternativeInitiate({
+          paymentMethod,
+          serviceId: data.serviceId,
+          billersCode: data.billersCode,
+          variationCode: data.variationCode,
+          subscriptionType: data.subscriptionType,
+          amount,
+        })
+        
+        await new Promise(resolve => setTimeout(resolve, 2000))
+        const res = await paymentsService.alternativeVerify(initRes.gateway_reference)
+        
+        queryClient.invalidateQueries({ queryKey: ['wallet'] })
+        queryClient.invalidateQueries({ queryKey: ['transactions'] })
+
+        const outcome = resolveVtpassCode(res.vtpass_code)
+        const statePayload = {
+          type: 'tv',
+          provider: data.serviceId,
+          customerName: verifyResult?.customerName,
+          smartcard: data.billersCode,
+          package: chosen?.name ?? 'Renewal',
+          amount_kobo: res.amount_kobo,
+          requestId: res.payment_reference,
+          date: new Date().toISOString(),
+        }
+
+        if (res.status === 'pending' || outcome.isPending) {
+          navigate('/payments/pending', { state: statePayload })
+        } else {
+          navigate('/payments/receipt', { state: statePayload })
+        }
+      } catch (err: any) {
+        alert(err?.response?.data?.message || 'Payment failed. Try again.')
+      } finally {
+        stopProcessing()
+      }
+    }
+  }
 
   const handlePinChange = async (val: string) => {
     setPin(val); setPinError('')
@@ -208,6 +262,8 @@ export function TvScreen() {
               {errors.variationCode && <p className="text-ios-red text-[13px] mt-1">{errors.variationCode.message}</p>}
             </div>
           )}
+
+          <PaymentMethodSelector value={paymentMethod} onChange={setPaymentMethod} disabled={isProcessing} />
 
           <Button type="submit" fullWidth className="mt-2" disabled={(!isShowMax && !verifyResult) || isProcessing}>
             {isShowMax && chosen

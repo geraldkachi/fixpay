@@ -155,10 +155,9 @@ export function RepeatPaymentBottomSheet({ tx, open, onClose }: RepeatPaymentBot
 
   return (
     <BottomSheet open={open} onClose={() => { if (!isProcessing) onClose() }} title={showPin ? "Enter PIN" : "Repeat Payment"} dismissible={!isProcessing}>
-      <div className="px-4 pt-2 pb-6 flex flex-col">
+      <div className={showPin ? "" : "px-4 pt-2 pb-6 flex flex-col"}>
         {showPin ? (
-          <div className="flex flex-col items-center">
-             <p className="text-[14px] text-gray-500 mb-6 text-center">Confirm payment of <strong className="text-gray-900">{formatCurrency(totalAmount)}</strong></p>
+          <div className="px-2 pt-2 pb-4">
              <PinPad value={pin} onChange={handlePinChange} error={pinError} disabled={isProcessing} />
           </div>
         ) : loadingDetails ? (

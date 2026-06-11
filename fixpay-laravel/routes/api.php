@@ -8,6 +8,7 @@ use App\Http\Controllers\Compliance\ComplianceController;
 use App\Http\Controllers\Compliance\DisputeController;
 use App\Http\Controllers\Mandate\MandateController;
 use App\Http\Controllers\Payment\VtpassPaymentController;
+use App\Http\Controllers\Payment\AlternativePaymentController;
 use App\Http\Controllers\Portal\ApiKeyController;
 use App\Http\Controllers\Portal\IpWhitelistController;
 use App\Http\Controllers\Portal\KybController;
@@ -79,6 +80,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('verify', [VtpassPaymentController::class, 'verify']);
         Route::post('vtpass', [VtpassPaymentController::class, 'pay'])->middleware('idempotent');
         Route::get('vtpass/{reference}', [VtpassPaymentController::class, 'status']);
+        Route::post('alternative/initiate', [AlternativePaymentController::class, 'initiate']);
+        Route::post('alternative/verify', [AlternativePaymentController::class, 'verify']);
     });
 
     // Transfers

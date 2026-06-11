@@ -15,6 +15,7 @@ import { BottomSheet } from '@/components/ui/BottomSheet'
 import { useTransactionStore } from '@/store/transaction.store'
 import { PinPad } from '@/components/ui/PinPad'
 import { resolveVtpassCode } from '@/lib/vtpass-codes'
+import { PaymentMethodSelector, type PaymentMethod } from '@/components/feature/PaymentMethodSelector'
 
 const PROVIDERS = [
   { id: 'ikeja-electric',       label: 'Ikeja Electric',        short: 'IKEDC' },
@@ -48,6 +49,7 @@ export function ElectricityScreen() {
   const [verifying, setVerifying] = useState(false)
   const [verifyError, setVerifyError] = useState('')
   const [pending, setPending] = useState<FormData | null>(null)
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('wallet')
   const { isProcessing, startProcessing, stopProcessing } = useTransactionStore()
 
   const AMOUNTS = [500, 1000, 2000, 5000, 10000]
@@ -72,7 +74,55 @@ export function ElectricityScreen() {
     } finally { setVerifying(false) }
   }
 
-  const onSubmit = (data: FormData) => { setPending(data); setPin(''); setPinError(''); setShowPin(true) }
+  const onSubmit = async (data: FormData) => {
+    setPending(data)
+    if (paymentMethod === 'wallet') {
+      setPin('')
+      setPinError('')
+      setShowPin(true)
+    } else {
+      startProcessing()
+      try {
+        const initRes = await paymentsService.alternativeInitiate({
+          paymentMethod,
+          serviceId: data.serviceId,
+          billersCode: data.billersCode,
+          variationCode: data.variationCode,
+          amount: data.amount,
+        })
+        
+        await new Promise(resolve => setTimeout(resolve, 2000))
+        const res = await paymentsService.alternativeVerify(initRes.gateway_reference)
+        
+        queryClient.invalidateQueries({ queryKey: ['wallet'] })
+        queryClient.invalidateQueries({ queryKey: ['transactions'] })
+
+        const outcome = resolveVtpassCode(res.vtpass_code)
+        const statePayload = {
+          type: 'electricity',
+          provider: data.serviceId,
+          customerName: verifyResult?.customerName,
+          meter: data.billersCode,
+          meterType: data.variationCode,
+          amount_kobo: res.amount_kobo,
+          token: res.token,
+          units: res.units,
+          requestId: res.payment_reference,
+          date: new Date().toISOString(),
+        }
+
+        if (res.status === 'pending' || outcome.isPending) {
+          navigate('/payments/pending', { state: statePayload })
+        } else {
+          navigate('/payments/receipt', { state: statePayload })
+        }
+      } catch (err: any) {
+        alert(err?.response?.data?.message || 'Payment failed. Try again.')
+      } finally {
+        stopProcessing()
+      }
+    }
+  }
 
   const handlePinChange = async (val: string) => {
     setPin(val); setPinError('')
@@ -178,6 +228,8 @@ export function ElectricityScreen() {
             <Input label="" type="number" inputMode="numeric" placeholder="Or enter amount" prefix="₦"
               error={errors.amount?.message} {...register('amount')} />
           </div>
+
+          <PaymentMethodSelector value={paymentMethod} onChange={setPaymentMethod} disabled={isProcessing} />
 
           <Button type="submit" fullWidth className="mt-2" disabled={!verifyResult || isProcessing}>Pay Now</Button>
         </form>

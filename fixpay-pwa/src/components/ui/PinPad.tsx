@@ -1,5 +1,6 @@
 import { useRef, useEffect, useCallback } from 'react'
 import { BackspaceIcon } from '@heroicons/react/24/outline'
+import { Spinner } from '@/components/ui/Spinner'
 import { cn } from '@/lib/utils'
 
 interface PinPadProps {
@@ -55,25 +56,32 @@ export function PinPad({ value, onChange, maxLength = 4, label, hint, error, dis
       {hint && !error && <p className="text-[13px] text-gray-400 text-center -mt-2">{hint}</p>}
 
       {/* Keypad */}
-      <div className="grid grid-cols-3 gap-3 w-full px-8">
-        {KEYS.map((key, idx) => {
-          if (key === '') return <div key={idx} />
-          if (key === 'del') {
+      {disabled ? (
+        <div className="flex flex-col items-center justify-center w-full" style={{ height: '292px' }}>
+          <Spinner size="lg" />
+          <p className="text-[15px] text-gray-500 mt-6 font-medium animate-pulse">Processing...</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-3 gap-3 w-full px-8">
+          {KEYS.map((key, idx) => {
+            if (key === '') return <div key={idx} />
+            if (key === 'del') {
+              return (
+                <button key={idx} onPointerDown={() => handleKey('del')} disabled={disabled || value.length === 0}
+                  className="h-16 rounded-[16px] flex items-center justify-center pressable active:bg-gray-200 transition-colors disabled:opacity-30">
+                  <BackspaceIcon className="w-6 h-6 text-gray-700" />
+                </button>
+              )
+            }
             return (
-              <button key={idx} onPointerDown={() => handleKey('del')} disabled={disabled || value.length === 0}
-                className="h-16 rounded-[16px] flex items-center justify-center pressable active:bg-gray-200 transition-colors disabled:opacity-30">
-                <BackspaceIcon className="w-6 h-6 text-gray-700" />
+              <button key={idx} onPointerDown={() => handleKey(key)} disabled={disabled}
+                className="h-16 bg-white rounded-[16px] flex items-center justify-center text-[24px] font-medium text-gray-900 shadow-sm pressable active:bg-gray-100 transition-colors disabled:opacity-30">
+                {key}
               </button>
             )
-          }
-          return (
-            <button key={idx} onPointerDown={() => handleKey(key)} disabled={disabled}
-              className="h-16 bg-white rounded-[16px] flex items-center justify-center text-[24px] font-medium text-gray-900 shadow-sm pressable active:bg-gray-100 transition-colors disabled:opacity-30">
-              {key}
-            </button>
-          )
-        })}
-      </div>
+          })}
+        </div>
+      )}
     </div>
   )
 }

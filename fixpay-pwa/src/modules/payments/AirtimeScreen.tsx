@@ -13,6 +13,7 @@ import { BottomSheet } from '@/components/ui/BottomSheet'
 import { useTransactionStore } from '@/store/transaction.store'
 import { PinPad } from '@/components/ui/PinPad'
 import { resolveVtpassCode } from '@/lib/vtpass-codes'
+import { PaymentMethodSelector, type PaymentMethod } from '@/components/feature/PaymentMethodSelector'
 
 const NETWORKS = [
   { id: 'mtn',      label: 'MTN',     color: '#FFCC00', text: '#000' },
@@ -36,6 +37,7 @@ export function AirtimeScreen() {
   const [pin, setPin] = useState('')
   const [pinError, setPinError] = useState('')
   const [pending, setPending] = useState<FormData | null>(null)
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('wallet')
   const { isProcessing, startProcessing, stopProcessing } = useTransactionStore()
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<FormData>({
@@ -45,7 +47,50 @@ export function AirtimeScreen() {
   const selectedNet = watch('serviceId')
   const isInternational = selectedNet === 'foreign-airtime'
 
-  const onSubmit = (data: FormData) => { setPending(data); setPin(''); setPinError(''); setShowPin(true) }
+  const onSubmit = async (data: FormData) => {
+    setPending(data)
+    if (paymentMethod === 'wallet') {
+      setPin('')
+      setPinError('')
+      setShowPin(true)
+    } else {
+      startProcessing()
+      try {
+        const initRes = await paymentsService.alternativeInitiate({
+          paymentMethod,
+          serviceId: data.serviceId,
+          phone: data.phone,
+          amount: data.amount,
+        })
+        
+        await new Promise(resolve => setTimeout(resolve, 2000))
+        const res = await paymentsService.alternativeVerify(initRes.gateway_reference)
+        
+        queryClient.invalidateQueries({ queryKey: ['wallet'] })
+        queryClient.invalidateQueries({ queryKey: ['transactions'] })
+
+        const outcome = resolveVtpassCode(res.vtpass_code)
+        const statePayload = {
+          type: 'airtime',
+          network: data.serviceId,
+          phone: data.phone,
+          amount_kobo: res.amount_kobo,
+          requestId: res.payment_reference,
+          date: new Date().toISOString(),
+        }
+
+        if (res.status === 'pending' || outcome.isPending) {
+          navigate('/payments/pending', { state: statePayload })
+        } else {
+          navigate('/payments/receipt', { state: statePayload })
+        }
+      } catch (err: any) {
+        alert(err?.response?.data?.message || 'Payment failed. Try again.')
+      } finally {
+        stopProcessing()
+      }
+    }
+  }
 
   const handlePinChange = async (val: string) => {
     setPin(val); setPinError('')
@@ -131,6 +176,8 @@ export function AirtimeScreen() {
             <Input label="" type="number" inputMode="numeric" placeholder="Or enter amount" prefix="₦"
               error={errors.amount?.message} {...register('amount')} />
           </div>
+
+          <PaymentMethodSelector value={paymentMethod} onChange={setPaymentMethod} disabled={isProcessing} />
 
           <Button type="submit" fullWidth className="mt-2" disabled={isProcessing}>Continue</Button>
         </form>

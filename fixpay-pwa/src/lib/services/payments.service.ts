@@ -206,4 +206,19 @@ export const paymentsService = {
       const d = r.data?.data || r.data
       return mapResponse(d, 0)
     }),
+
+  alternativeInitiate: (payload: any & { paymentMethod: 'payfixy' | 'bank_mandate' }): Promise<{ payment_reference: string, gateway_reference: string, status: string }> =>
+    api.post<any>('/payments/alternative/initiate', {
+      service_id: payload.serviceId,
+      amount_kobo: Math.round(payload.amount * 100),
+      phone: payload.phone || payload.billersCode || '',
+      payment_method: payload.paymentMethod,
+      billers_code: payload.billersCode,
+      variation_code: payload.variationCode,
+      subscription_type: payload.subscriptionType,
+    }, { headers: { 'X-Idempotency-Key': self.crypto.randomUUID() } }).then(r => r.data),
+
+  alternativeVerify: (gatewayReference: string): Promise<BillPaymentResponse> =>
+    api.post<any>('/payments/alternative/verify', { gateway_reference: gatewayReference })
+      .then(r => mapResponse(r.data, 0)),
 }

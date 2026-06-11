@@ -15,6 +15,7 @@ import { BottomSheet } from '@/components/ui/BottomSheet'
 import { PinPad } from '@/components/ui/PinPad'
 import { Spinner } from '@/components/ui/Spinner'
 import { resolveVtpassCode } from '@/lib/vtpass-codes'
+import { PaymentMethodSelector, type PaymentMethod } from '@/components/feature/PaymentMethodSelector'
 
 const parseAmount = (amt: string | number | undefined | null): number => {
   if (!amt) return 0;
@@ -45,6 +46,7 @@ export function EducationScreen() {
   const [pinError, setPinError] = useState('')
   const [pending, setPending] = useState<FormData | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('wallet')
   const initialService = (location.state as { serviceId?: string } | null)?.serviceId ?? 'jamb'
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<FormData>({
@@ -65,7 +67,53 @@ export function EducationScreen() {
     setValue('amount', amountNaira)
   }
 
-  const onSubmit = (data: FormData) => { setPending(data); setPin(''); setPinError(''); setShowPin(true) }
+  const onSubmit = async (data: FormData) => {
+    setPending(data)
+    if (paymentMethod === 'wallet') {
+      setPin('')
+      setPinError('')
+      setShowPin(true)
+    } else {
+      setSubmitting(true)
+      try {
+        const initRes = await paymentsService.alternativeInitiate({
+          paymentMethod,
+          serviceId: data.serviceId,
+          billersCode: data.billersCode,
+          variationCode: data.variationCode,
+          phone: data.phone,
+          amount: data.amount,
+        })
+        
+        await new Promise(resolve => setTimeout(resolve, 2000))
+        const res = await paymentsService.alternativeVerify(initRes.gateway_reference)
+        
+        queryClient.invalidateQueries({ queryKey: ['wallet'] })
+        queryClient.invalidateQueries({ queryKey: ['transactions'] })
+
+        const outcome = resolveVtpassCode(res.vtpass_code)
+        const statePayload = {
+          type: 'education',
+          serviceId,
+          exam: chosen?.name,
+          amount_kobo: res.amount_kobo,
+          pin: res.Pin ?? res.purchased_code,
+          requestId: res.payment_reference,
+          date: new Date().toISOString(),
+        }
+
+        if (res.status === 'pending' || outcome.isPending) {
+          navigate('/payments/pending', { state: statePayload })
+        } else {
+          navigate('/payments/receipt', { state: statePayload })
+        }
+      } catch (err: any) {
+        alert(err?.response?.data?.message || 'Payment failed. Try again.')
+      } finally {
+        setSubmitting(false)
+      }
+    }
+  }
 
   const handlePinChange = async (val: string) => {
     setPin(val); setPinError('')
@@ -147,7 +195,9 @@ export function EducationScreen() {
             {errors.variationCode && <p className="text-ios-red text-[13px] mt-1">{errors.variationCode.message}</p>}
           </div>
 
-          <Button type="submit" fullWidth disabled={!chosen}>
+          <PaymentMethodSelector value={paymentMethod} onChange={setPaymentMethod} disabled={submitting} />
+
+          <Button type="submit" fullWidth disabled={!chosen || submitting}>
             {chosen ? `Pay ₦${parseAmount(chosen.variationAmount ?? (chosen as any).variation_amount).toLocaleString()}` : 'Continue'}
           </Button>
         </form>

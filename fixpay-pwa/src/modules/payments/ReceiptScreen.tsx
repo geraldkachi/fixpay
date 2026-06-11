@@ -1,10 +1,15 @@
+import { useRef, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/solid'
-import { ShareIcon, HomeIcon } from '@heroicons/react/24/outline'
+import { ShareIcon, HomeIcon, DocumentDuplicateIcon, PrinterIcon, PhotoIcon } from '@heroicons/react/24/outline'
 import { formatCurrency, formatDateFull } from '@/lib/utils'
 import { Button } from '@/components/ui/Button'
+import { BottomSheet } from '@/components/ui/BottomSheet'
 import { HeartIcon as HeartOutline } from '@heroicons/react/24/outline'
 import { HeartIcon as HeartSolid } from '@heroicons/react/24/solid'
+import { useFavouritesStore } from '@/store/favourites.store'
+import type { Transaction } from '@/types'
+import { toBlob } from 'html-to-image'
 import { useFavouritesStore } from '@/store/favourites.store'
 import type { Transaction } from '@/types'
 
@@ -40,6 +45,10 @@ export function ReceiptScreen() {
   const r = state as ReceiptState
 
   if (!r) { navigate('/home', { replace: true }); return null }
+
+  const [showShare, setShowShare] = useState(false)
+  const [isSharing, setIsSharing] = useState(false)
+  const receiptRef = useRef<HTMLDivElement>(null)
 
   const isPrepaidElectricity = r.type === 'electricity' && r.meterType === 'prepaid'
   const isFailed = r.status === 'FAILED' || r.status === 'failed'
@@ -78,9 +87,63 @@ export function ReceiptScreen() {
     }
   }
 
+  const handleShareImage = async () => {
+    if (!receiptRef.current) return
+    setIsSharing(true)
+    try {
+      const blob = await toBlob(receiptRef.current, { cacheBust: true, style: { backgroundColor: '#F2F2F7' } })
+      if (!blob) throw new Error('Failed to generate image')
+      
+      const file = new File([blob], `receipt_${r.requestId || 'payment'}.png`, { type: 'image/png' })
+      
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          title: 'Payment Receipt',
+          files: [file],
+        })
+      } else {
+        // Fallback: download the image
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `receipt_${r.requestId || 'payment'}.png`
+        a.click()
+        URL.revokeObjectURL(url)
+      }
+    } catch (err) {
+      alert('Could not share image. Please try again.')
+    } finally {
+      setIsSharing(false)
+      setShowShare(false)
+    }
+  }
+
+  const handlePrint = () => {
+    setShowShare(false)
+    setTimeout(() => window.print(), 300)
+  }
+
+  const handleCopy = async () => {
+    try {
+      let text = `Receipt for Payment\n`
+      text += `Status: ${isFailed ? 'Failed' : 'Successful'}\n`
+      text += `Amount: ${formatCurrency(r.amount_kobo)}\n`
+      text += `Date: ${formatDateFull(r.date)}\n`
+      if (r.requestId) text += `Reference: ${r.requestId}\n`
+      if (r.token) text += `Token: ${r.token}\n`
+      if (r.pin) text += `PIN: ${r.pin}\n`
+      await navigator.clipboard.writeText(text)
+      alert('Receipt details copied to clipboard')
+    } catch {
+      alert('Failed to copy to clipboard')
+    } finally {
+      setShowShare(false)
+    }
+  }
+
   return (
     <div className="flex flex-col h-[100dvh] bg-[#F2F2F7]">
-      <div className="flex-1 overflow-y-auto no-scrollbar px-4 pt-safe pb-8">
+      <div ref={receiptRef} className="flex-1 overflow-y-auto no-scrollbar px-4 pt-safe pb-8 bg-[#F2F2F7]">
         {/* Status icon */}
         <div className="flex flex-col items-center pt-10 pb-6 animate-scale-in">
           <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-4 ${isFailed ? 'bg-red-100' : 'bg-green-100'}`}>
@@ -148,8 +211,8 @@ export function ReceiptScreen() {
       </div>
 
       {/* Actions */}
-      <div className="px-4 pb-safe flex flex-col gap-3 pb-6 shrink-0">
-        <Button variant="outline" fullWidth onClick={() => {}} >
+      <div className="px-4 pb-safe flex flex-col gap-3 pb-6 shrink-0 print:hidden">
+        <Button variant="outline" fullWidth onClick={() => setShowShare(true)} >
           <ShareIcon className="w-4 h-4" /> Share Receipt
         </Button>
         {canBeSaved && (
@@ -162,6 +225,20 @@ export function ReceiptScreen() {
           <HomeIcon className="w-4 h-4" /> Back to Home
         </Button>
       </div>
+
+      <BottomSheet open={showShare} onClose={() => setShowShare(false)} title="Share Receipt">
+        <div className="flex flex-col gap-3 p-4 pb-8">
+          <Button variant="outline" fullWidth onClick={handleShareImage} disabled={isSharing} className="justify-start px-6 font-semibold">
+            <PhotoIcon className="w-5 h-5 mr-3" /> {isSharing ? 'Generating Image...' : 'Share as Image'}
+          </Button>
+          <Button variant="outline" fullWidth onClick={handlePrint} className="justify-start px-6 font-semibold">
+            <PrinterIcon className="w-5 h-5 mr-3" /> Save as PDF / Print
+          </Button>
+          <Button variant="outline" fullWidth onClick={handleCopy} className="justify-start px-6 font-semibold">
+            <DocumentDuplicateIcon className="w-5 h-5 mr-3" /> Copy Details
+          </Button>
+        </div>
+      </BottomSheet>
     </div>
   )
 }
