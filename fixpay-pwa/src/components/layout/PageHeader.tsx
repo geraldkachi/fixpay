@@ -1,7 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { ChevronLeftIcon } from '@heroicons/react/24/outline'
 import { cn } from '@/lib/utils'
-import { LogoMark } from '@/components/ui/Logo'
 
 interface PageHeaderProps {
   title: string
@@ -14,7 +13,7 @@ interface PageHeaderProps {
 export function PageHeader({ title, onBack, right, className, transparent }: PageHeaderProps) {
   const navigate = useNavigate()
   const handleBack = onBack === 'default' ? () => navigate(-1) : onBack
-  const rightSlot = right ?? <LogoMark size={26} />
+  const rightSlot = right ?? null
   return (
     <header className={cn('sticky top-0 z-20 shrink-0 flex items-center gap-2 h-14 px-4', transparent ? 'bg-transparent' : 'bg-[#F2F2F7]', className)}>
       {handleBack ? (
