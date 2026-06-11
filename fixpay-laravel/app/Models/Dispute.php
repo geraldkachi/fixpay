@@ -14,13 +14,12 @@ class Dispute extends Model
         'user_id', 'tenant_id', 'related_payment_id', 'related_payment_type',
         'category', 'reason', 'status', 'resolution_notes',
         'assigned_to', 'sla_deadline', 'resolved_at',
-        'ticket_number', 'phone_number', 'email', 'transaction_date', 'refund_processed'
+        'ticket_number', 'refund_processed'
     ];
 
     protected $casts = [
         'sla_deadline' => 'datetime',
         'resolved_at' => 'datetime',
-        'transaction_date' => 'datetime',
         'refund_processed' => 'boolean',
     ];
 

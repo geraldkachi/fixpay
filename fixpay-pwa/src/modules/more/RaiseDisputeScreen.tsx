@@ -17,16 +17,14 @@ export function RaiseDisputeScreen() {
 
   const [category, setCategory] = useState('NOT_DELIVERED')
   const [reason, setReason] = useState('')
-  const [phone, setPhone] = useState('')
-  const [email, setEmail] = useState('')
   
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!reason || !phone || !email) {
-      setError('Please fill in all required fields.')
+    if (!reason) {
+      setError('Please fill in the details of your dispute.')
       return
     }
     
@@ -38,10 +36,7 @@ export function RaiseDisputeScreen() {
         related_payment_id: txId,
         related_payment_type: txType,
         category: category,
-        reason: reason,
-        phone_number: phone,
-        email: email,
-        transaction_date: txDate ? new Date(txDate).toISOString() : null
+        reason: reason
       })
       navigate('/more/disputes', { replace: true })
     } catch (err: any) {
@@ -92,22 +87,6 @@ export function RaiseDisputeScreen() {
               onChange={(e) => setReason(e.target.value)}
             />
           </div>
-
-          <Input
-            label="Telephone Number"
-            type="tel"
-            placeholder="08012345678"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-          />
-
-          <Input
-            label="Email Address"
-            type="email"
-            placeholder="your@email.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
 
           <div className="mt-4 pb-safe">
             <Button type="submit" fullWidth disabled={loading}>
