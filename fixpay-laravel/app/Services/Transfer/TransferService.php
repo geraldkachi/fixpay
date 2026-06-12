@@ -45,7 +45,7 @@ class TransferService
             $reference, $idempotencyKey, $feeKobo
         ) {
             $totalDebit = $amountKobo + $feeKobo;
-            $this->walletService->debit($wallet, $totalDebit, $reference, "Bank transfer: {$accountNumber}");
+            $this->walletService->hold($wallet, $totalDebit);
 
             // Resolve account name via Paystack
             $accountName = $this->resolveAccountName($accountNumber, $bankCode);
@@ -228,20 +228,30 @@ class TransferService
                 'paystack_transfer_code' => $data['data']['transfer_code'] ?? null,
                 'provider_response' => $data['data'] ?? null,
             ]);
+
+            // Commit the hold now that the transfer has successfully left our system
+            $wallet = Wallet::find($transfer->wallet_id);
+            if ($wallet) {
+                app(WalletService::class)->commitHold(
+                    $wallet,
+                    $transfer->amount_kobo + $transfer->fee_kobo,
+                    $transfer->transfer_reference,
+                    "Bank transfer: {$transfer->account_number}"
+                );
+            }
         } catch (\Throwable $e) {
             $transfer->update([
                 'status' => 'FAILED',
                 'failed_at' => now(),
                 'failure_reason' => $e->getMessage(),
             ]);
-            // Reverse wallet debit
+            
+            // Release the hold without creating a ledger entry since the external API failed instantly
             $wallet = Wallet::find($transfer->wallet_id);
             if ($wallet) {
-                app(WalletService::class)->reverse(
+                app(WalletService::class)->releaseHold(
                     $wallet,
-                    $transfer->amount_kobo + $transfer->fee_kobo,
-                    $transfer->transfer_reference,
-                    "Reversal: bank transfer failed"
+                    $transfer->amount_kobo + $transfer->fee_kobo
                 );
             }
         }

@@ -9,7 +9,7 @@ const mapFavouriteToTransaction = (fav: FavouritePayload): Transaction => ({
   amountKobo: fav.amount_kobo || 0,
   feeKobo: 0,
   status: 'completed',
-  reference: fav.id,
+  reference: fav.transaction_reference || fav.id,
   description: fav.description || '',
   serviceId: fav.service_id,
   serviceName: fav.service_name,

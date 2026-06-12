@@ -46,6 +46,7 @@ export function ReceiptScreen() {
 
   const [showShare, setShowShare] = useState(false)
   const [isSharing, setIsSharing] = useState(false)
+  const [favDisabled, setFavDisabled] = useState(false)
   const receiptRef = useRef<HTMLDivElement>(null)
 
   const isPrepaidElectricity = r.type === 'electricity' && r.meterType === 'prepaid'
@@ -56,7 +57,8 @@ export function ReceiptScreen() {
   const canBeSaved = r.type !== 'transfer_in' && r.type !== 'wallet_funding' && !!r.requestId
 
   const toggleFavourite = () => {
-    if (!r.requestId) return
+    if (!r.requestId || favDisabled) return
+    setFavDisabled(true)
     if (isFav) {
       removeFavourite(r.requestId)
     } else {
@@ -214,7 +216,7 @@ export function ReceiptScreen() {
           <ShareIcon className="w-4 h-4" /> Share Receipt
         </Button>
         {canBeSaved && (
-          <Button variant="outline" fullWidth onClick={toggleFavourite} className={isFav ? "text-red-500 border-red-200 bg-red-50" : ""}>
+          <Button variant="outline" fullWidth onClick={toggleFavourite} disabled={favDisabled} className={isFav ? "text-red-500 border-red-200 bg-red-50" : ""}>
             {isFav ? <HeartSolid className="w-4 h-4 text-red-500" /> : <HeartOutline className="w-4 h-4" />} 
             {isFav ? 'Saved to Favourites' : 'Save to Favourites'}
           </Button>

@@ -26,6 +26,7 @@ class FavouriteController extends Controller
             'counterparty_name' => 'required|string',
             'description' => 'nullable|string',
             'amount_kobo' => 'nullable|integer|min:0',
+            'transaction_reference' => 'nullable|string',
         ]);
 
         $favourite = $request->user()->favourites()->create($data);

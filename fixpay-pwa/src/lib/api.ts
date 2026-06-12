@@ -2,6 +2,7 @@ import axios from 'axios'
 import { useAuthStore } from '@/store/auth.store'
 import { purgeDbKey } from '@/lib/crypto'
 import { clearTransactions } from '@/lib/db'
+import { useDuplicatePaymentStore } from '@/store/duplicatePayment.store'
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? '/api',
@@ -11,7 +12,9 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 })
 
-api.interceptors.request.use((config) => {
+const idempotencyCache = new Map<string, { key: string, expiry: number }>()
+
+api.interceptors.request.use(async (config) => {
   // In mock/dev mode the token lives in memory (MSW can't set httpOnly cookies).
   // In production the httpOnly cookie is sent automatically by the browser;
   // the Authorization header is kept as a fallback for clients that prefer it.
@@ -19,6 +22,51 @@ api.interceptors.request.use((config) => {
   if (token) config.headers.Authorization = `Bearer ${token}`
   const fp = localStorage.getItem('device_fp')
   if (fp) config.headers['X-Device-Fingerprint'] = fp
+  
+  // Add global idempotency key for all mutating requests
+  if (config.method && ['post', 'put', 'patch', 'delete'].includes(config.method.toLowerCase())) {
+    if (!config.headers['X-Idempotency-Key']) {
+      let dataStr = ''
+      if (typeof config.data === 'string') {
+        dataStr = config.data
+      } else if (config.data && typeof config.data === 'object') {
+        try { dataStr = JSON.stringify(config.data) } catch { dataStr = 'unserializable' }
+      }
+      
+      const sig = `${config.method.toLowerCase()}:${config.url}:${dataStr}`
+      const now = Date.now()
+      
+      // Cleanup expired keys
+      for (const [k, v] of idempotencyCache.entries()) {
+        if (v.expiry < now) idempotencyCache.delete(k)
+      }
+
+      const isPayment = config.url?.includes('/payments') || config.url?.includes('/transfers')
+      const isFavourite = config.url?.includes('/favourites')
+
+      let key = ''
+      const existing = idempotencyCache.get(sig)
+
+      if (isPayment && existing && existing.expiry > now) {
+        const proceed = await useDuplicatePaymentStore.getState().showWarning("You recently made this exact payment. Are you sure you want to duplicate it?")
+        if (!proceed) {
+          return Promise.reject(new Error("DuplicatePaymentCancelled"))
+        }
+        // User wants a new transaction -> generate fresh key
+        key = self.crypto.randomUUID()
+        idempotencyCache.set(sig, { key, expiry: now + 60000 })
+      } else if (existing && existing.expiry > now) {
+        key = existing.key
+      } else {
+        key = self.crypto.randomUUID()
+        const duration = isPayment ? 60000 : (isFavourite ? 30000 : 5000)
+        idempotencyCache.set(sig, { key, expiry: now + duration })
+      }
+      
+      config.headers['X-Idempotency-Key'] = key
+    }
+  }
+
   // tenant_slug is set server-side at login from user.tenant_id FK — not from client input.
   // Sending it as a header scopes tenant/config and portal calls to the correct tenant.
   const tenantSlug = localStorage.getItem('tenant_slug')

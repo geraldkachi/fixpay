@@ -160,15 +160,13 @@ export const paymentsService = {
   // All bill payments
   airtime: (payload: AirtimePayload): Promise<BillPaymentResponse> =>
     api.post<any>('/payments/vtpass',
-      vtpassPayload(payload.serviceId, payload.amount, payload.phone),
-      { headers: { 'X-Idempotency-Key': self.crypto.randomUUID() } }
+      vtpassPayload(payload.serviceId, payload.amount, payload.phone)
     ).then(r => mapResponse(r.data, payload.amount)),
 
   data: (payload: DataPayload): Promise<BillPaymentResponse> =>
     api.post<any>('/payments/vtpass',
       // phone = subscriber's mobile number (billersCode); amount = bundle price in Naira
-      vtpassPayload(payload.serviceId, payload.amount, payload.billersCode, payload.billersCode, payload.variationCode),
-      { headers: { 'X-Idempotency-Key': self.crypto.randomUUID() } }
+      vtpassPayload(payload.serviceId, payload.amount, payload.billersCode, payload.billersCode, payload.variationCode)
     ).then(r => mapResponse(r.data, payload.amount)),
 
   tv: (payload: TvPayload): Promise<BillPaymentResponse> =>
@@ -177,28 +175,24 @@ export const paymentsService = {
       {
         ...vtpassPayload(payload.serviceId, payload.amount, payload.billersCode, payload.billersCode, payload.variationCode),
         subscription_type: payload.subscriptionType,
-      },
-      { headers: { 'X-Idempotency-Key': self.crypto.randomUUID() } }
+      }
     ).then(r => mapResponse(r.data, payload.amount)),
 
   electricity: (payload: ElectricityPayload): Promise<BillPaymentResponse> =>
     api.post<any>('/payments/vtpass',
-      vtpassPayload(payload.serviceId, payload.amount, payload.billersCode, payload.billersCode, payload.variationCode),
-      { headers: { 'X-Idempotency-Key': self.crypto.randomUUID() } }
+      vtpassPayload(payload.serviceId, payload.amount, payload.billersCode, payload.billersCode, payload.variationCode)
     ).then(r => mapResponse(r.data, payload.amount)),
 
   education: (payload: EducationPayload): Promise<BillPaymentResponse> =>
     api.post<any>('/payments/vtpass',
       // billersCode = profile/exam ID; phone = contact number; amount = variation price
-      vtpassPayload(payload.serviceId, payload.amount, payload.phone ?? payload.billersCode, payload.billersCode, payload.variationCode),
-      { headers: { 'X-Idempotency-Key': self.crypto.randomUUID() } }
+      vtpassPayload(payload.serviceId, payload.amount, payload.phone ?? payload.billersCode, payload.billersCode, payload.variationCode)
     ).then(r => mapResponse(r.data, payload.amount)),
 
   insurance: (payload: InsurancePayload): Promise<BillPaymentResponse> =>
     api.post<any>('/payments/vtpass',
       // billersCode = vehicle plate / reference; phone = contact number; amount = plan price
-      vtpassPayload(payload.serviceId, payload.amount, payload.phone ?? payload.billersCode, payload.billersCode, payload.variationCode),
-      { headers: { 'X-Idempotency-Key': self.crypto.randomUUID() } }
+      vtpassPayload(payload.serviceId, payload.amount, payload.phone ?? payload.billersCode, payload.billersCode, payload.variationCode)
     ).then(r => mapResponse(r.data, payload.amount)),
 
   requery: (paymentReference: string): Promise<BillPaymentResponse> =>
@@ -216,7 +210,7 @@ export const paymentsService = {
       billers_code: payload.billersCode,
       variation_code: payload.variationCode,
       subscription_type: payload.subscriptionType,
-    }, { headers: { 'X-Idempotency-Key': self.crypto.randomUUID() } }).then(r => r.data),
+    }).then(r => r.data),
 
   alternativeVerify: (gatewayReference: string): Promise<BillPaymentResponse> =>
     api.post<any>('/payments/alternative/verify', { gateway_reference: gatewayReference })

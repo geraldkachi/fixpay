@@ -18,6 +18,7 @@ class Favourite extends Model
         'counterparty_name',
         'description',
         'amount_kobo',
+        'transaction_reference',
     ];
 
     protected $casts = [

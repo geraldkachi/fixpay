@@ -60,8 +60,8 @@ class VtpassService
                 if (!$wallet) {
                     throw new \Exception('Wallet is required for wallet payment method');
                 }
-                // Debit wallet (raises exception if insufficient)
-                $this->walletService->debit($wallet, $totalDebit, $paymentReference, "Bill payment: {$serviceId}");
+                // Hold funds (raises exception if insufficient)
+                $this->walletService->hold($wallet, $totalDebit);
             }
 
             $payment = VtpassPayment::create([
@@ -85,7 +85,7 @@ class VtpassService
                 ], fn ($v) => $v !== null),
             ]);
 
-            $this->log($payment, 'DEBIT', 'SUCCESS', ['total_debit_kobo' => $totalDebit]);
+            $this->log($payment, 'HOLD', 'SUCCESS', ['total_debit_kobo' => $totalDebit]);
 
             return $payment;
         });
@@ -139,8 +139,15 @@ class VtpassService
 
             $this->log($payment, 'RESPONSE', $isSuccess ? 'COMPLETED' : 'FAILED', $body);
 
-            if (! $isSuccess) {
-                $this->reversePayment($payment);
+            if ($isSuccess) {
+                if ($payment->wallet_id) {
+                    $wallet = Wallet::find($payment->wallet_id);
+                    $totalDebit = $payment->amount_kobo + $payment->fee_kobo;
+                    $this->walletService->commitHold($wallet, $totalDebit, $payment->payment_reference, "Bill payment: {$payment->service_id}");
+                    $this->log($payment, 'COMMIT', 'SUCCESS', ['total_debit_kobo' => $totalDebit]);
+                }
+            } else {
+                $this->releaseHoldForPayment($payment);
             }
 
         } catch (\Throwable $e) {
@@ -149,20 +156,20 @@ class VtpassService
                 'failed_at' => now(),
             ]);
             $this->log($payment, 'EXCEPTION', 'FAILED', ['error' => $e->getMessage()]);
-            $this->reversePayment($payment);
+            $this->releaseHoldForPayment($payment);
             throw $e;
         }
 
         return $payment->fresh();
     }
 
-    private function reversePayment(VtpassPayment $payment): void
+    private function releaseHoldForPayment(VtpassPayment $payment): void
     {
         $wallet = Wallet::find($payment->wallet_id);
         if ($wallet) {
             $totalRefund = $payment->amount_kobo + $payment->fee_kobo;
-            $this->walletService->reverse($wallet, $totalRefund, $payment->payment_reference, "Reversal: {$payment->service_id}");
-            $this->log($payment, 'REVERSAL', 'SUCCESS', ['refunded_kobo' => $totalRefund]);
+            $this->walletService->releaseHold($wallet, $totalRefund);
+            $this->log($payment, 'RELEASE_HOLD', 'SUCCESS', ['refunded_kobo' => $totalRefund]);
         }
     }
 

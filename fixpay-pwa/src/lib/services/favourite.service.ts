@@ -9,6 +9,7 @@ export interface FavouritePayload {
   counterparty_name: string
   description?: string
   amount_kobo?: number
+  transaction_reference?: string
 }
 
 export const favouriteService = {
@@ -25,6 +26,7 @@ export const favouriteService = {
       counterparty_name: tx.counterpartyName || 'Unknown',
       description: tx.description,
       amount_kobo: tx.amountKobo,
+      transaction_reference: tx.reference,
     }
     const res = await api.post<{ data: FavouritePayload }>('/favourites', payload)
     return res.data.data

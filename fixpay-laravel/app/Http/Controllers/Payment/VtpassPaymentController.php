@@ -17,20 +17,26 @@ class VtpassPaymentController extends Controller
     /** GET /api/payments/vtpass/services */
     public function services(Request $request): JsonResponse
     {
-        $identifier = $request->query('identifier', 'airtime');
-        $client = new Client(['timeout' => 15, 'verify' => false]);
+        try {
+            $identifier = $request->query('identifier', 'airtime');
+            $client = new Client(['timeout' => 15, 'verify' => false]);
 
-        $response = $client->get(config('services.vtpass.base_url') . '/services', [
-            'headers' => [
-                'api-key' => config('services.vtpass.api_key'),
-                'public-key' => config('services.vtpass.public_key'),
-            ],
-            'query' => ['identifier' => $identifier],
-        ]);
+            $response = $client->get(config('services.vtpass.base_url') . '/services', [
+                'headers' => [
+                    'api-key' => config('services.vtpass.api_key'),
+                    'public-key' => config('services.vtpass.public_key'),
+                ],
+                'query' => ['identifier' => $identifier],
+            ]);
 
-        return response()->json(
-            json_decode($response->getBody()->getContents(), true)
-        );
+            return response()->json(
+                json_decode($response->getBody()->getContents(), true)
+            );
+        } catch (\Throwable $e) {
+            return response()->json([
+                'message' => 'Service not available at this time. Please try again later.'
+            ], 503);
+        }
     }
 
     /** GET /api/payments/vtpass/variations */
@@ -38,19 +44,25 @@ class VtpassPaymentController extends Controller
     {
         $request->validate(['serviceID' => 'required|string']);
 
-        $client = new Client(['timeout' => 15, 'verify' => false]);
-        $response = $client->get(config('services.vtpass.base_url') . '/service-variations', [
-            'headers' => [
-                'api-key' => config('services.vtpass.api_key'),
-                'secret-key' => config('services.vtpass.secret_key'),
-                'public-key' => config('services.vtpass.public_key'),
-            ],
-            'query' => ['serviceID' => $request->query('serviceID')],
-        ]);
+        try {
+            $client = new Client(['timeout' => 15, 'verify' => false]);
+            $response = $client->get(config('services.vtpass.base_url') . '/service-variations', [
+                'headers' => [
+                    'api-key' => config('services.vtpass.api_key'),
+                    'secret-key' => config('services.vtpass.secret_key'),
+                    'public-key' => config('services.vtpass.public_key'),
+                ],
+                'query' => ['serviceID' => $request->query('serviceID')],
+            ]);
 
-        return response()->json(
-            json_decode($response->getBody()->getContents(), true)
-        );
+            return response()->json(
+                json_decode($response->getBody()->getContents(), true)
+            );
+        } catch (\Throwable $e) {
+            return response()->json([
+                'message' => 'Service not available at this time. Please try again later.'
+            ], 503);
+        }
     }
 
     /** POST /api/payments/verify */
@@ -62,29 +74,35 @@ class VtpassPaymentController extends Controller
             'type' => 'nullable|string',
         ]);
 
-        $client = new Client(['timeout' => 15, 'verify' => false]);
-        
-        $payload = [
-            'billersCode' => $data['billers_code'],
-            'serviceID' => $data['service_id'],
-        ];
+        try {
+            $client = new Client(['timeout' => 15, 'verify' => false]);
+            
+            $payload = [
+                'billersCode' => $data['billers_code'],
+                'serviceID' => $data['service_id'],
+            ];
 
-        if (!empty($data['type'])) {
-            $payload['type'] = $data['type'];
+            if (!empty($data['type'])) {
+                $payload['type'] = $data['type'];
+            }
+
+            $response = $client->post(config('services.vtpass.base_url') . '/merchant-verify', [
+                'headers' => [
+                    'api-key' => config('services.vtpass.api_key'),
+                    'secret-key' => config('services.vtpass.secret_key'),
+                    'Content-Type' => 'application/json',
+                ],
+                'json' => $payload,
+            ]);
+
+            return response()->json(
+                json_decode($response->getBody()->getContents(), true)
+            );
+        } catch (\Throwable $e) {
+            return response()->json([
+                'message' => 'Service not available at this time. Please try again later.'
+            ], 503);
         }
-
-        $response = $client->post(config('services.vtpass.base_url') . '/merchant-verify', [
-            'headers' => [
-                'api-key' => config('services.vtpass.api_key'),
-                'secret-key' => config('services.vtpass.secret_key'),
-                'Content-Type' => 'application/json',
-            ],
-            'json' => $payload,
-        ]);
-
-        return response()->json(
-            json_decode($response->getBody()->getContents(), true)
-        );
     }
 
     /** POST /api/payments/vtpass */
@@ -121,20 +139,28 @@ class VtpassPaymentController extends Controller
             ],
         );
 
-        // Submit asynchronously via queue in production; sync here for simplicity
-        $payment = $this->vtpass->submit($payment);
+        try {
+            // Submit asynchronously via queue in production; sync here for simplicity
+            $payment = $this->vtpass->submit($payment);
 
-        return response()->json([
-            'payment_reference' => $payment->payment_reference,
-            'status' => $payment->payment_status,
-            'token' => $payment->token,
-            'units' => $payment->units,
-            'amount_kobo' => $payment->amount_kobo,
-            'fee_kobo' => $payment->fee_kobo,
-            'provider_code' => $payment->provider_code,
-            'vtpass_code' => $payment->provider_code,
-            'message' => $payment->payment_status === 'FAILED' ? ($payment->response_payload['response_description'] ?? 'Transaction failed.') : null,
-        ], $payment->payment_status === 'COMPLETED' ? 200 : 422);
+            return response()->json([
+                'payment_reference' => $payment->payment_reference,
+                'status' => $payment->payment_status,
+                'token' => $payment->token,
+                'units' => $payment->units,
+                'amount_kobo' => $payment->amount_kobo,
+                'fee_kobo' => $payment->fee_kobo,
+                'provider_code' => $payment->provider_code,
+                'vtpass_code' => $payment->provider_code,
+                'message' => $payment->payment_status === 'FAILED' ? ($payment->response_payload['response_description'] ?? 'Transaction failed.') : null,
+            ], $payment->payment_status === 'COMPLETED' ? 200 : 422);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'message' => 'Service not available at this time. Please try again later.',
+                'payment_reference' => $payment->payment_reference,
+                'status' => 'FAILED',
+            ], 503);
+        }
     }
 
     /** GET /api/payments/vtpass/{reference} */

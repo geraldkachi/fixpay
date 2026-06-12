@@ -122,7 +122,7 @@ export function AirtimeScreen() {
     } catch (err: any) {
       const code = err?.response?.data?.vtpass_code || err?.response?.data?.provider_code
       const outcome = resolveVtpassCode(code)
-      const serverMsg = err?.response?.data?.message || (code ? `${outcome.message} (${code})` : 'Incorrect PIN or payment failed. Try again.')
+      const serverMsg = err?.response?.data?.message || (code ? `${outcome.message} (${code})` : 'Service not available at this time. Please try again later.')
       setPinError(serverMsg)
       setPin('')
     } finally {

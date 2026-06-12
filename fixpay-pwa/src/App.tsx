@@ -10,6 +10,7 @@ import type { TenantConfig, ApiResponse } from '@/types'
 // Layout (eager — always rendered, tiny)
 import { AppShell } from '@/components/layout/AppShell'
 import { RouteErrorBoundary } from '@/components/layout/RouteErrorBoundary'
+import { DuplicatePaymentModal } from '@/components/feature/DuplicatePaymentModal'
 
 // Auth
 const SplashScreen       = lazy(() => import('@/modules/auth/SplashScreen').then(m => ({ default: m.SplashScreen })))
@@ -170,6 +171,7 @@ export default function App() {
     <Suspense fallback={<PageLoader />}>
       <TenantLoader />
       <RouterProvider router={router} />
+      <DuplicatePaymentModal />
       <DevModeToggle />
     </Suspense>
   )
