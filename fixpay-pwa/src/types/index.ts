@@ -117,7 +117,7 @@ export interface Dispute {
   resolution?: string
   slaDeadline: string
   createdAt: string
-  transaction: Transaction
+  transaction?: any // VTPass or Transfer object from backend
 }
 
 export interface NipBank {

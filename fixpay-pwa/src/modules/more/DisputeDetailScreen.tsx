@@ -45,6 +45,36 @@ export function DisputeDetailScreen() {
             <div className="flex items-center justify-between mt-1">
               <p className="text-[13px] text-gray-500">{formatDateFull(dispute.transaction_date || dispute.created_at)}</p>
             </div>
+            {dispute.transaction && (
+              <div className="mt-3 pt-3 border-t border-black/5 flex flex-col gap-1.5">
+                <div className="flex justify-between">
+                  <span className="text-[12px] text-gray-500">Amount</span>
+                  <span className="text-[12px] font-semibold text-gray-900">{formatCurrency(dispute.transaction.amount_kobo)}</span>
+                </div>
+                {dispute.transaction.phone && (
+                  <div className="flex justify-between">
+                    <span className="text-[12px] text-gray-500">Phone</span>
+                    <span className="text-[12px] font-medium text-gray-900">{dispute.transaction.phone}</span>
+                  </div>
+                )}
+                {dispute.transaction.account_number && (
+                  <div className="flex justify-between">
+                    <span className="text-[12px] text-gray-500">Account</span>
+                    <span className="text-[12px] font-medium text-gray-900">{dispute.transaction.account_number}</span>
+                  </div>
+                )}
+                {dispute.transaction.service_id && (
+                  <div className="flex justify-between">
+                    <span className="text-[12px] text-gray-500">Service</span>
+                    <span className="text-[12px] font-medium text-gray-900">{dispute.transaction.service_id.toUpperCase()}</span>
+                  </div>
+                )}
+                <div className="flex justify-between">
+                  <span className="text-[12px] text-gray-500">Status</span>
+                  <span className="text-[12px] font-medium text-gray-900 uppercase">{dispute.transaction.status}</span>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

@@ -89,7 +89,29 @@ class DisputeController extends Controller
     {
         $dispute = Dispute::where('id', $id)->where('user_id', $request->user()->id)->firstOrFail();
 
-        return response()->json($dispute);
+        $transaction = null;
+        if ($dispute->related_payment_type === 'VTPASS') {
+            $isUuid = \Illuminate\Support\Str::isUuid($dispute->related_payment_id);
+            if ($isUuid) {
+                $transaction = VtpassPayment::where('id', $dispute->related_payment_id)->orWhere('payment_reference', $dispute->related_payment_id)->first();
+            } else {
+                $transaction = VtpassPayment::where('payment_reference', $dispute->related_payment_id)->first();
+            }
+        } elseif ($dispute->related_payment_type === 'TRANSFER') {
+            $isUuid = \Illuminate\Support\Str::isUuid($dispute->related_payment_id);
+            if ($isUuid) {
+                $transaction = Transfer::where('id', $dispute->related_payment_id)->orWhere('transfer_reference', $dispute->related_payment_id)->first();
+            } else {
+                $transaction = Transfer::where('transfer_reference', $dispute->related_payment_id)->first();
+            }
+        }
+
+        $response = $dispute->toArray();
+        if ($transaction) {
+            $response['transaction'] = $transaction->toArray();
+        }
+
+        return response()->json($response);
     }
 
     // ── Admin actions ─────────────────────────────────────────────────────
