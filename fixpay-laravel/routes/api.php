@@ -60,6 +60,15 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::put('profile', [UserController::class, 'updateProfile']);
     });
 
+    Route::get('analytics', [\App\Http\Controllers\User\AnalyticsController::class, 'show']);
+
+    // Favourites
+    Route::prefix('favourites')->group(function () {
+        Route::get('/', [\App\Http\Controllers\User\FavouriteController::class, 'index']);
+        Route::post('/', [\App\Http\Controllers\User\FavouriteController::class, 'store']);
+        Route::delete('{id}', [\App\Http\Controllers\User\FavouriteController::class, 'destroy']);
+    });
+
     // KYC
     Route::prefix('kyc')->group(function () {
         Route::post('bvn', [KycController::class, 'verifyBvn']);

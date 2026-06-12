@@ -12,12 +12,21 @@ import { useFavouritesStore } from '@/store/favourites.store'
 import { formatCurrency, formatDateShort } from '@/lib/utils'
 import { Badge, statusBadge } from '@/components/ui/Badge'
 import { HeartIcon as HeartSolid } from '@heroicons/react/24/solid'
+import { useAnalyticsStore } from '@/store/analytics.store'
+import { AnalyticsSummaryChart } from '@/components/feature/AnalyticsSummaryChart'
+import { useEffect } from 'react'
 
 export function HomeScreen() {
   const navigate = useNavigate()
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null)
   const [repeatTx, setRepeatTx] = useState<Transaction | null>(null)
-  const { favourites, removeFavourite } = useFavouritesStore()
+  const { favourites, removeFavourite, fetchFavourites } = useFavouritesStore()
+  const { data: analyticsData, fetchAnalytics } = useAnalyticsStore()
+
+  useEffect(() => {
+    fetchAnalytics('7d') // Fetch 7-day trend for home screen
+    fetchFavourites()
+  }, [fetchAnalytics, fetchFavourites])
 
   return (
     <div className="flex flex-col bg-[#F2F2F7] min-h-[100dvh] pb-nav">
@@ -26,6 +35,8 @@ export function HomeScreen() {
       <div className="animate-slide-up">
         <BalanceCard />
       </div>
+
+
 
       {/* Quick services */}
       <section className="px-4 mt-5 animate-slide-up">
@@ -78,6 +89,18 @@ export function HomeScreen() {
           </div>
         )}
       </section>
+
+      {/* Analytics Summary */}
+      {analyticsData && (
+        <div className="px-4 mt-5 mb-5 animate-slide-up">
+          <AnalyticsSummaryChart 
+            data={analyticsData.trend_data} 
+            incomeTotal={analyticsData.income_total} 
+            expenseTotal={analyticsData.expense_total} 
+            period="7d" 
+          />
+        </div>
+      )}
 
       <TransactionDetailsBottomSheet tx={selectedTx} open={selectedTx !== null} onClose={() => setSelectedTx(null)} />
       <RepeatPaymentBottomSheet tx={repeatTx} open={repeatTx !== null} onClose={() => setRepeatTx(null)} />

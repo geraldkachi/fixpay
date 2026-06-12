@@ -42,29 +42,13 @@ api.interceptors.response.use(
       const { token, isAuthenticated } = useAuthStore.getState()
       if (!token && !isAuthenticated) return Promise.reject(err)
 
-      if (refreshing) {
-        return new Promise(res => { queue.push(t => { orig.headers.Authorization = `Bearer ${t}`; res(api(orig)) }) })
-      }
-      refreshing = true
       try {
-        // withCredentials sends the httpOnly refresh_token cookie automatically.
-        // The server returns a new accessToken in the body AND rotates the cookie.
-        const { data } = await axios.post('/api/auth/refresh', {}, { withCredentials: true })
-        // Backend wraps in ApiResponse<{accessToken}>: {success, data: {accessToken}}
-        const t = (data.data?.accessToken ?? data.accessToken) as string
-        // Store the new token in memory only — NOT in localStorage
-        useAuthStore.getState().setToken(t)
-        queue.forEach(cb => cb(t)); queue = []
-        orig.headers.Authorization = `Bearer ${t}`
-        return api(orig)
-      } catch {
         await serverLogout()
+      } finally {
         // Avoid hard-redirecting if already on an auth page (prevents reload loop)
         if (!window.location.pathname.startsWith('/auth')) {
           window.location.href = '/auth/login'
         }
-      } finally {
-        refreshing = false
       }
     }
     return Promise.reject(err)
