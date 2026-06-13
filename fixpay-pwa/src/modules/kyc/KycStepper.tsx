@@ -51,8 +51,8 @@ function BvnStep({ onDone }: { onDone: () => void }) {
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<{ bvn: string; dob: string }>({ resolver: zodResolver(bvnSchema) })
   
   const startPolling = async (attempt = 0) => {
-    // Delays: 1m, 4m, 10m, 20m, 25m (Total 60m)
-    const delays = [60000, 240000, 600000, 1200000, 1500000]
+    // Delays: 10s, 4m, 10m, 20m, 25m (Total ~60m)
+    const delays = [10000, 240000, 600000, 1200000, 1500000]
     if (attempt >= delays.length) {
       setErr('BVN verification timed out. Please try again.')
       setAwaiting(false)
