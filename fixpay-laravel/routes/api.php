@@ -42,6 +42,9 @@ Route::post('portal/register', [PortalRegistrationController::class, 'register']
 // Paystack webhook (public, verified by signature)
 Route::post('webhooks/paystack', [PaystackWebhookController::class, 'handle']);
 
+// NIBSS Webhook callback (public)
+Route::post('webhooks/nibss/callback', [KycController::class, 'nibssCallback']);
+
 // ── Authenticated consumer routes ─────────────────────────────────────────
 Route::middleware(['auth:sanctum'])->group(function () {
 
@@ -63,6 +66,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     // KYC
     Route::prefix('kyc')->group(function () {
         Route::post('bvn', [KycController::class, 'verifyBvn']);
+        Route::post('bvn/consent/initiate', [KycController::class, 'initiateBvnConsent']);
         Route::post('nin', [KycController::class, 'verifyNin']);
         Route::get('status', [KycController::class, 'status']);
     });

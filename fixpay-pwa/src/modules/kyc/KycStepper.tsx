@@ -47,12 +47,69 @@ function NinStep({ onDone }: { onDone: () => void }) {
 
 function BvnStep({ onDone }: { onDone: () => void }) {
   const [err, setErr] = useState('')
+  const [awaiting, setAwaiting] = useState(false)
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<{ bvn: string; dob: string }>({ resolver: zodResolver(bvnSchema) })
+  
+  const startPolling = async (attempt = 0) => {
+    // Delays: 1m, 4m, 10m, 20m, 25m (Total 60m)
+    const delays = [60000, 240000, 600000, 1200000, 1500000]
+    if (attempt >= delays.length) {
+      setErr('BVN verification timed out. Please try again.')
+      setAwaiting(false)
+      return
+    }
+    
+    setTimeout(async () => {
+      try {
+        const res = await api.get('/kyc/status')
+        const bvnStatus = res.data.verifications?.find((v: any) => v.type === 'BVN_CONSENT' || v.type === 'BVN')?.status
+        if (bvnStatus === 'VERIFIED') {
+          onDone()
+        } else if (bvnStatus === 'FAILED') {
+          setErr('BVN verification failed at NIBSS.')
+          setAwaiting(false)
+        } else {
+          startPolling(attempt + 1)
+        }
+      } catch (e) {
+        startPolling(attempt + 1)
+      }
+    }, delays[attempt])
+  }
+
   const onSubmit = async (data: { bvn: string; dob: string }) => {
     setErr('')
-    try { await api.post('/kyc/bvn', data); onDone() }
+    try { 
+      const res = await api.post('/kyc/bvn/consent/initiate', data) 
+      if (res.data.status === 'PENDING') {
+        setAwaiting(true)
+        if (res.data.consentUrl) {
+          window.open(res.data.consentUrl, '_blank')
+        }
+        startPolling(0)
+      } else if (res.data.status === 'VERIFIED') {
+        onDone()
+      }
+    }
     catch { setErr('Could not verify BVN. Check the number and retry.') }
   }
+
+  if (awaiting) {
+    return (
+      <div className="flex flex-col items-center gap-5 pt-8">
+        <p className="text-[28px]">⏳</p>
+        <h2 className="text-[20px] font-bold text-gray-900 mt-2">Awaiting NIBSS Response</h2>
+        <p className="text-[14px] text-gray-500 mt-1 text-center px-4">
+          BVN validation is ongoing with NIBSS. You will be informed as soon as details are received.
+        </p>
+        <p className="text-[12px] text-gray-400 mt-4 text-center px-4">
+          Please complete the authentication on the NIBSS portal that opened in a new tab.
+        </p>
+        <Button variant="outline" onClick={() => setAwaiting(false)} className="mt-4">Cancel &amp; Retry</Button>
+      </div>
+    )
+  }
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5">
       <div className="text-center mb-2">

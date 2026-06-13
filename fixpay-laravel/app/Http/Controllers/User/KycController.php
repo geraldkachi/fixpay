@@ -117,6 +117,93 @@ class KycController extends Controller
         }
     }
 
+    /** POST /api/kyc/bvn/consent/initiate */
+    public function initiateBvnConsent(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'bvn' => 'required|string|size:11',
+            'dob' => 'nullable|date_format:Y-m-d',
+        ]);
+
+        $user = $request->user();
+
+        // Check if already verified
+        $existing = KycVerification::where('user_id', $user->id)
+            ->whereIn('type', ['BVN', 'BVN_CONSENT'])
+            ->where('verification_status', 'VERIFIED')
+            ->first();
+
+        if ($existing) {
+            return response()->json([
+                'status' => 'VERIFIED',
+                'message' => 'BVN already verified.',
+            ]);
+        }
+
+        $sessionId = 'mock_session_' . uniqid();
+        $consentUrl = env('NIBSS_BASE_URL', 'https://apitest.nibss-plc.com.ng/api') . '/consent/mock?sessionId=' . $sessionId;
+
+        $record = KycVerification::create([
+            'user_id' => $user->id,
+            'type' => 'BVN_CONSENT',
+            'identifier' => Hash::make($data['bvn']),
+            'provider' => 'NIBSS_CONSENT_HUB',
+            'verification_status' => 'PENDING',
+            'nibss_session_id' => $sessionId,
+        ]);
+
+        return response()->json([
+            'status' => 'PENDING',
+            'message' => 'Consent initiated successfully.',
+            'consentUrl' => $consentUrl,
+            'sessionId' => $sessionId,
+        ]);
+    }
+
+    /** POST /api/webhooks/nibss/callback */
+    public function nibssCallback(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'sessionId' => 'required|string',
+            'retrievalToken' => 'required|string',
+            'dataOwnerId' => 'required|string',
+            'consentExpiryTime' => 'nullable|string',
+            'tokenIssuedDate' => 'nullable|string',
+            'requestCategory' => 'nullable|string',
+        ]);
+
+        $record = KycVerification::where('nibss_session_id', $data['sessionId'])->first();
+
+        if (!$record) {
+            return response()->json(['message' => 'Session not found'], 404);
+        }
+
+        // Mocking the NIBSS Data Retrieval using the retrievalToken
+        // In a real scenario, we would make a POST to the NIBSS retrieval endpoint here
+        $mockedRetrievedData = [
+            'bvn' => $data['dataOwnerId'],
+            'firstName' => 'John',
+            'lastName' => 'Doe',
+            'mock' => true,
+        ];
+
+        $record->update([
+            'nibss_retrieval_token' => $data['retrievalToken'],
+            'consent_expiry_time' => isset($data['consentExpiryTime']) ? \Carbon\Carbon::parse($data['consentExpiryTime']) : null,
+            'bvn_consent_status' => 'APPROVED',
+            'verification_status' => 'VERIFIED',
+            'verified_at' => now(),
+            'response_json' => $mockedRetrievedData,
+        ]);
+
+        $user = $record->user;
+        if ($user && $user->kyc_status === 'UNVERIFIED') {
+            $user->update(['kyc_status' => 'PENDING']);
+        }
+
+        return response()->json(['message' => 'request received successfully']);
+    }
+
     /** GET /api/kyc/status */
     public function status(Request $request): JsonResponse
     {
