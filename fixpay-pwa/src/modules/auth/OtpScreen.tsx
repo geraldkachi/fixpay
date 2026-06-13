@@ -18,7 +18,7 @@ export function OtpScreen() {
   const display = email || (pendingPhone ?? 'your email')
 
   const handleVerify = async () => {
-    if (otp.length < 6) { setError('Enter the 6-digit code'); return }
+    if (otp.length < 4) { setError('Enter the 4-digit code'); return }
     setError(''); setLoading(true)
     try {
       const res = await api.post('/auth/verify-otp', { email, otp })
@@ -47,9 +47,9 @@ export function OtpScreen() {
       <PageHeader title="Verify Email" onBack="default" />
       <div className="flex-1 flex flex-col items-center px-6 pt-8 gap-6 animate-slide-up">
         <p className="text-[15px] text-gray-500 text-center">
-          Enter the 6-digit code sent to <strong className="text-gray-900">{display}</strong>
+          Enter the 4-digit code sent to <strong className="text-gray-900">{display}</strong>
         </p>
-        <OTPInput length={6} value={otp} onChange={setOtp} autoFocus />
+        <OTPInput length={4} value={otp} onChange={setOtp} autoFocus />
         {error && <p className="text-[14px] text-ios-red text-center">{error}</p>}
         <Button fullWidth loading={loading} onClick={handleVerify}>Verify</Button>
         <button className="text-[14px]" style={{ color: 'var(--brand-primary)' }}>Resend code</button>

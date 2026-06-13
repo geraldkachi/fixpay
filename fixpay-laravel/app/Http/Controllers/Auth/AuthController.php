@@ -58,7 +58,7 @@ class AuthController extends Controller
         $data = $request->validate([
             'identifier' => 'required|string',
             'purpose'    => 'required|in:verification,login',
-            'code'       => 'required|string|size:6',
+            'code'       => 'required|string|size:4',
         ]);
 
         $valid = $this->otpService->verify($data['identifier'], $data['purpose'], $data['code']);
