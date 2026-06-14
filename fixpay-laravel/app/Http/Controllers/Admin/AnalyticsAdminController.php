@@ -34,10 +34,10 @@ class AnalyticsAdminController extends Controller
         $volumeChart = Transfer::where('status', 'SUCCESS')
             ->where('created_at', '>=', $sevenDaysAgo)
             ->select(
-                DB::raw('DATE(created_at) as date'),
+                DB::raw('CAST(created_at AS DATE) as date'),
                 DB::raw('SUM(amount_kobo) as volume')
             )
-            ->groupBy('date')
+            ->groupBy(DB::raw('CAST(created_at AS DATE)'))
             ->orderBy('date', 'ASC')
             ->get();
 

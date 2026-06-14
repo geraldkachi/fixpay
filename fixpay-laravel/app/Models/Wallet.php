@@ -27,6 +27,11 @@ class Wallet extends Model
         return $this->belongsTo(AppUser::class, 'user_id');
     }
 
+    public function tenant(): BelongsTo
+    {
+        return $this->belongsTo(Tenant::class, 'tenant_id');
+    }
+
     public function ledgerEntries(): HasMany
     {
         return $this->hasMany(LedgerEntry::class);
