@@ -35,8 +35,8 @@ export const useAdminAuthStore = create<AdminAuthState>((set, get) => ({
       await api.get('/sanctum/csrf-cookie')
       
       // Try fetching current user profile
-      // In Laravel backend, we'll map this to /api/user/profile or similar
-      const { data } = await api.get('/user/profile')
+      // In Laravel backend, we'll map this to /admin/profile
+      const { data } = await api.get('/admin/profile')
       
       set({
         isAuthenticated: true,
