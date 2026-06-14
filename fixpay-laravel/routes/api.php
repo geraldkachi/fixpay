@@ -158,6 +158,10 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function ()
         Route::get('ledger', [App\Http\Controllers\Admin\TransactionAdminController::class, 'ledger']);
     });
 
+    Route::prefix('system')->group(function () {
+        Route::get('health', [App\Http\Controllers\Admin\SystemAdminController::class, 'health']);
+    });
+
     Route::prefix('tenants')->group(function () {
         Route::get('/', [TenantAdminController::class, 'index']);
         Route::get('{id}', [TenantAdminController::class, 'show']);
