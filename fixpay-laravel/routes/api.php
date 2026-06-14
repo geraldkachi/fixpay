@@ -151,6 +151,7 @@ Route::prefix('portal')->middleware(['api.key', 'tenant', 'ip.whitelist'])->grou
 Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function () {
 
     Route::get('profile', [App\Http\Controllers\Admin\AdminProfileController::class, 'show']);
+    Route::get('analytics', [App\Http\Controllers\Admin\AnalyticsAdminController::class, 'index']);
 
     Route::prefix('tenants')->group(function () {
         Route::get('/', [TenantAdminController::class, 'index']);
