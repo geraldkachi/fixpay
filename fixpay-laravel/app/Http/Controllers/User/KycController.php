@@ -129,7 +129,7 @@ class KycController extends Controller
 
         // Check if already verified
         $existing = KycVerification::where('user_id', $user->id)
-            ->whereIn('type', ['BVN', 'BVN_CONSENT'])
+            ->where('type', 'BVN')
             ->where('verification_status', 'VERIFIED')
             ->first();
 
@@ -145,7 +145,7 @@ class KycController extends Controller
 
         $record = KycVerification::create([
             'user_id' => $user->id,
-            'type' => 'BVN_CONSENT',
+            'type' => 'BVN',
             'identifier' => Hash::make($data['bvn']),
             'provider' => 'NIBSS_CONSENT_HUB',
             'verification_status' => 'PENDING',

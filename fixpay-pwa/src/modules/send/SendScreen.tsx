@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { BottomSheet } from '@/components/ui/BottomSheet'
 import { useTransactionStore } from '@/store/transaction.store'
+import { useAuthStore } from '@/store/auth.store'
 import { PinPad } from '@/components/ui/PinPad'
 import { Spinner } from '@/components/ui/Spinner'
 
@@ -30,6 +31,10 @@ type FormData = z.infer<typeof schema>
 
 export function SendScreen() {
   const navigate = useNavigate()
+  const { user, setUser, kycCompleted } = useAuthStore()
+  const isBvnVerified = kycCompleted
+  const [checkingStatus, setCheckingStatus] = useState(false)
+
   const [showPin, setShowPin] = useState(false)
   const [pin, setPin] = useState('')
   const [pinError, setPinError] = useState('')
@@ -40,6 +45,18 @@ export function SendScreen() {
   const { isProcessing, startProcessing, stopProcessing } = useTransactionStore()
   const [bankSearch, setBankSearch] = useState('')
   const [showBankSheet, setShowBankSheet] = useState(false)
+
+  const handleCheckStatus = async () => {
+    setCheckingStatus(true)
+    try {
+      const res = await api.get('/user/profile')
+      setUser(res.data.data ?? res.data)
+    } catch {
+      // ignore
+    } finally {
+      setCheckingStatus(false)
+    }
+  }
 
   const { data: banks = [], isLoading: banksLoading } = useQuery<NipBank[]>({
     queryKey: ['banks'],
@@ -103,54 +120,70 @@ export function SendScreen() {
     <div className="flex flex-col h-[100dvh] bg-[#F2F2F7]">
       <PageHeader title="Send Money" />
       <div className="flex-1 overflow-y-auto no-scrollbar px-4 pt-4 pb-8 animate-slide-up">
-        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
-
-          {/* Bank selector */}
-          <div>
-            <p className="text-[13px] font-semibold text-gray-500 uppercase tracking-wide mb-2">Bank</p>
-            <button type="button" onClick={() => setShowBankSheet(true)}
-              className="w-full h-[52px] bg-white rounded-[12px] px-4 flex items-center justify-between shadow-sm border border-transparent pressable">
-              {banksLoading ? <Spinner size="sm" /> : (
-                <>
-                  <span className={selectedBank ? 'text-[17px] text-gray-900' : 'text-[17px] text-gray-400'}>{selectedBank?.bankName ?? 'Select Bank'}</span>
-                  <MagnifyingGlassIcon className="w-4 h-4 text-gray-400" />
-                </>
-              )}
-            </button>
-            {errors.bankCode && <p className="text-ios-red text-[13px] mt-1 px-1">{errors.bankCode.message}</p>}
-          </div>
-
-          {/* Account number + lookup */}
-          <div>
-            <Input label="Account Number" type="tel" inputMode="numeric" maxLength={10} placeholder="0123456789"
-              error={errors.accountNumber?.message} {...register('accountNumber')} />
-            <p className="text-[11px] text-gray-400 mt-1 px-1">Demo: 0123456789</p>
-            <Button type="button" variant="outline" size="sm" className="mt-2 w-full" onClick={handleLookup} loading={enquiring}>
-              Verify Account
+        {!isBvnVerified ? (
+          <div className="bg-white rounded-[24px] p-6 flex flex-col items-center text-center shadow-sm border border-black/5 mt-4">
+            <p className="text-[40px] mb-2">🛡️</p>
+            <h2 className="text-[20px] font-bold text-gray-900">Verification Required</h2>
+            <p className="text-[14px] text-gray-500 mt-2 mb-6">
+              To keep our platform secure and comply with regulations, please complete your BVN verification to unlock transfers.
+            </p>
+            <Button onClick={() => navigate('/kyc')} fullWidth className="mb-3">
+              Verify BVN Now
+            </Button>
+            <Button variant="ghost" onClick={handleCheckStatus} loading={checkingStatus} fullWidth className="text-brand">
+              Check Status
             </Button>
           </div>
+        ) : (
+          <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
 
-          {enquiryError && <p className="text-ios-red text-[13px]">{enquiryError}</p>}
-          {nameEnquiry && (
-            <div className="bg-green-50 rounded-[14px] px-4 py-3 flex gap-3 items-center">
-              <CheckCircleIcon className="w-5 h-5 text-green-600 shrink-0" />
-              <p className="font-bold text-gray-900">{nameEnquiry.accountName}</p>
+            {/* Bank selector */}
+            <div>
+              <p className="text-[13px] font-semibold text-gray-500 uppercase tracking-wide mb-2">Bank</p>
+              <button type="button" onClick={() => setShowBankSheet(true)}
+                className="w-full h-[52px] bg-white rounded-[12px] px-4 flex items-center justify-between shadow-sm border border-transparent pressable">
+                {banksLoading ? <Spinner size="sm" /> : (
+                  <>
+                    <span className={selectedBank ? 'text-[17px] text-gray-900' : 'text-[17px] text-gray-400'}>{selectedBank?.bankName ?? 'Select Bank'}</span>
+                    <MagnifyingGlassIcon className="w-4 h-4 text-gray-400" />
+                  </>
+                )}
+              </button>
+              {errors.bankCode && <p className="text-ios-red text-[13px] mt-1 px-1">{errors.bankCode.message}</p>}
             </div>
-          )}
 
-          {/* Amount */}
-          <Input label="Amount (₦)" type="number" inputMode="numeric" placeholder="5000" prefix="₦"
-            error={errors.amountKobo?.message} {...register('amountKobo')} />
-          {watch('amountKobo') > 0 && (
-            <p className="text-[13px] text-gray-400 -mt-3 px-1">
-              Total: {formatCurrency(watch('amountKobo') * 100 + FEE)} (incl. ₦52.50 fee)
-            </p>
-          )}
+            {/* Account number + lookup */}
+            <div>
+              <Input label="Account Number" type="tel" inputMode="numeric" maxLength={10} placeholder="0123456789"
+                error={errors.accountNumber?.message} {...register('accountNumber')} />
+              <p className="text-[11px] text-gray-400 mt-1 px-1">Demo: 0123456789</p>
+              <Button type="button" variant="outline" size="sm" className="mt-2 w-full" onClick={handleLookup} loading={enquiring}>
+                Verify Account
+              </Button>
+            </div>
 
-          <Input label="Narration (optional)" type="text" placeholder="Transfer description" {...register('narration')} />
+            {enquiryError && <p className="text-ios-red text-[13px]">{enquiryError}</p>}
+            {nameEnquiry && (
+              <div className="bg-green-50 rounded-[14px] px-4 py-3 flex gap-3 items-center">
+                <CheckCircleIcon className="w-5 h-5 text-green-600 shrink-0" />
+                <p className="font-bold text-gray-900">{nameEnquiry.accountName}</p>
+              </div>
+            )}
 
-          <Button type="submit" fullWidth className="mt-2" disabled={!nameEnquiry || isProcessing}>Send Money</Button>
-        </form>
+            {/* Amount */}
+            <Input label="Amount (₦)" type="number" inputMode="numeric" placeholder="5000" prefix="₦"
+              error={errors.amountKobo?.message} {...register('amountKobo')} />
+            {watch('amountKobo') > 0 && (
+              <p className="text-[13px] text-gray-400 -mt-3 px-1">
+                Total: {formatCurrency(watch('amountKobo') * 100 + FEE)} (incl. ₦52.50 fee)
+              </p>
+            )}
+
+            <Input label="Narration (optional)" type="text" placeholder="Transfer description" {...register('narration')} />
+
+            <Button type="submit" fullWidth className="mt-2" disabled={!nameEnquiry || isProcessing}>Send Money</Button>
+          </form>
+        )}
       </div>
 
       {/* Bank search sheet */}

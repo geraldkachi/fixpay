@@ -21,7 +21,12 @@ export function OtpScreen() {
     if (otp.length < 4) { setError('Enter the 4-digit code'); return }
     setError(''); setLoading(true)
     try {
-      const res = await api.post('/auth/verify-otp', { email, otp })
+      const res = await api.post('/auth/verify-otp', {
+        identifier: email,
+        purpose: 'verification',
+        code: otp,
+        otp, // compatibility fallback for mock
+      })
       // Backend wraps in ApiResponse; MSW mocks return the flat payload
       const payload: { accessToken?: string; user?: User } = res.data.data ?? res.data
       if (payload.accessToken && payload.user) {

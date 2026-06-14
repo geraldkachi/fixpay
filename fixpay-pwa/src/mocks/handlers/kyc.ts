@@ -28,7 +28,7 @@ export const kycHandlers = [
       tier: 1,
       verifications: [
         { type: 'NIN', status: 'VERIFIED' },
-        { type: 'BVN_CONSENT', status: 'VERIFIED' }
+        { type: 'BVN', status: 'VERIFIED' }
       ]
     })
   }),

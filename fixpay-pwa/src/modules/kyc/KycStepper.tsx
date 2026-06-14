@@ -46,10 +46,17 @@ function NinStep({ onDone }: { onDone: () => void }) {
 }
 
 function BvnStep({ onDone }: { onDone: () => void }) {
+  const navigate = useNavigate()
+  const { setKycDeferred } = useAuthStore()
   const [err, setErr] = useState('')
   const [awaiting, setAwaiting] = useState(false)
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<{ bvn: string; dob: string }>({ resolver: zodResolver(bvnSchema) })
   
+  const handleContinueLater = () => {
+    setKycDeferred(true)
+    navigate('/home')
+  }
+
   const startPolling = async (attempt = 0) => {
     // Delays: 10s, 4m, 10m, 20m, 25m (Total ~60m)
     const delays = [10000, 240000, 600000, 1200000, 1500000]
@@ -105,7 +112,10 @@ function BvnStep({ onDone }: { onDone: () => void }) {
         <p className="text-[12px] text-gray-400 mt-4 text-center px-4">
           Please complete the authentication on the NIBSS portal that opened in a new tab.
         </p>
-        <Button variant="outline" onClick={() => setAwaiting(false)} className="mt-4">Cancel &amp; Retry</Button>
+        <div className="flex flex-col gap-3 w-full mt-4">
+          <Button variant="outline" onClick={() => setAwaiting(false)} className="w-full">Cancel &amp; Retry</Button>
+          <Button variant="ghost" onClick={handleContinueLater} className="text-brand w-full">Continue Later</Button>
+        </div>
       </div>
     )
   }
@@ -123,6 +133,7 @@ function BvnStep({ onDone }: { onDone: () => void }) {
         error={errors.bvn?.message} {...register('bvn')} />
       {err && <p className="text-ios-red text-[13px] text-center">{err}</p>}
       <Button type="submit" fullWidth loading={isSubmitting}>Verify BVN</Button>
+      <Button type="button" variant="ghost" onClick={handleContinueLater} className="text-brand" fullWidth>Continue Later</Button>
       <p className="text-[12px] text-center text-gray-400">Demo: use any 11-digit number</p>
     </form>
   )
@@ -159,6 +170,7 @@ export function KycStepper() {
       await new Promise(r => setTimeout(r, 800)) // simulate network delay
       setDone(true)
       setKycCompleted(true)
+      useAuthStore.getState().setKycDeferred(false)
       setTimeout(() => navigate('/home', { replace: true }), 1800)
     } catch { /* ignore */ }
     finally { setSelfieLoading(false) }

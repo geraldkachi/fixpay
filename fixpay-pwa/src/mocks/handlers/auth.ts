@@ -35,7 +35,7 @@ export const authHandlers = [
     return HttpResponse.json({ message: 'Logged out' }, { status: 200 })
   }),
 
-  http.post('/api/auth/pin/create', async () => {
+  http.post('/api/auth/pin/set', async () => {
     await delay(400)
     return HttpResponse.json({ message: 'PIN created' }, { status: 200 })
   }),
