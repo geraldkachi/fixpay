@@ -162,6 +162,17 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function ()
         Route::get('health', [App\Http\Controllers\Admin\SystemAdminController::class, 'health']);
     });
 
+    Route::prefix('fraud')->group(function () {
+        Route::get('rules', [App\Http\Controllers\Admin\FraudAdminController::class, 'getRules']);
+        Route::get('cases', [App\Http\Controllers\Admin\FraudAdminController::class, 'getCases']);
+    });
+
+    Route::prefix('users')->group(function () {
+        Route::get('/', [App\Http\Controllers\Admin\UserAdminController::class, 'index']);
+        Route::get('{id}', [App\Http\Controllers\Admin\UserAdminController::class, 'show']);
+        Route::put('{id}/status', [App\Http\Controllers\Admin\UserAdminController::class, 'updateStatus']);
+    });
+
     Route::prefix('tenants')->group(function () {
         Route::get('/', [TenantAdminController::class, 'index']);
         Route::get('{id}', [TenantAdminController::class, 'show']);
