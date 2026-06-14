@@ -150,6 +150,8 @@ Route::prefix('portal')->middleware(['api.key', 'tenant', 'ip.whitelist'])->grou
 // ── Admin routes (Sanctum + role guard) ──────────────────────────────────
 Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function () {
 
+    Route::get('profile', [App\Http\Controllers\Admin\AdminProfileController::class, 'show']);
+
     Route::prefix('tenants')->group(function () {
         Route::get('/', [TenantAdminController::class, 'index']);
         Route::get('{id}', [TenantAdminController::class, 'show']);
