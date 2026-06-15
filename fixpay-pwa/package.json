@@ -5,9 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
-    "build:mock": "tsc -b && vite build --mode mock",
-    "build:e2e": "tsc -b && vite build --mode e2e",
+    "build": "vite build",
+    "build:mock": "vite build --mode mock",
+    "build:e2e": "vite build --mode e2e",
     "lint": "eslint .",
     "preview": "vite preview"
   },
