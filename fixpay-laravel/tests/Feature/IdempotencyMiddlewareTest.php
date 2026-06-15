@@ -133,6 +133,19 @@ class IdempotencyMiddlewareTest extends TestCase
 
     public function test_vtpass_airtime_vending_is_idempotent(): void
     {
+        \Illuminate\Support\Facades\Http::fake([
+            '*' => \Illuminate\Support\Facades\Http::response([
+                'code' => '000',
+                'content' => [
+                    'transactions' => [
+                        'status' => 'delivered',
+                        'transactionId' => '12345'
+                    ]
+                ],
+                'response_description' => 'TRANSACTION SUCCESSFUL'
+            ], 200)
+        ]);
+
         $wallet = \App\Models\Wallet::create([
             'user_id' => $this->user->id,
             'tenant_id' => $this->user->tenant_id,
