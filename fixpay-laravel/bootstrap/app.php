@@ -14,6 +14,9 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->statefulApi();
+        $middleware->api(append: [
+            \App\Http\Middleware\IdempotencyMiddleware::class,
+        ]);
         $middleware->alias([
             'api.key' => \App\Http\Middleware\ApiKeyMiddleware::class,
             'tenant' => \App\Http\Middleware\TenantContextMiddleware::class,

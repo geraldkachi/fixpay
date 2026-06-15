@@ -49,9 +49,12 @@ export default defineConfig(({ command }) => ({
     port: 5273,
     host: true,
     proxy: {
-      '/api': { target: 'http://localhost:8081', changeOrigin: true },
-      '/tenant': { target: 'http://localhost:8081', changeOrigin: true },
+      '/api': { target: 'http://127.0.0.1:8000', changeOrigin: true },
+      '/tenant': { target: 'http://127.0.0.1:8000', changeOrigin: true },
     },
+  },
+  optimizeDeps: {
+    include: ['recharts']
   },
   build: {
     rollupOptions: {

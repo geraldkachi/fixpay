@@ -68,7 +68,6 @@ export function RepeatPaymentBottomSheet({ tx, open, onClose }: RepeatPaymentBot
     try {
       await authService.verifyPin(val)
       
-      const idempotencyKey = self.crypto.randomUUID()
       let res;
       if (tx?.type === 'transfer_out') {
         // We know it's a bank transfer or wallet transfer.
@@ -79,13 +78,13 @@ export function RepeatPaymentBottomSheet({ tx, open, onClose }: RepeatPaymentBot
             account_number: details.account_number,
             bank_code: details.bank_code,
             narration: details.narration,
-          }, { headers: { 'X-Idempotency-Key': idempotencyKey } })
+          })
         } else {
            res = await api.post('/transfers/wallet', {
             amount_kobo: details.amount_kobo,
             recipient_phone: details.account_number || details.phone,
             narration: details.narration,
-          }, { headers: { 'X-Idempotency-Key': idempotencyKey } })
+          })
         }
       } else {
         res = await api.post('/payments/vtpass', {
@@ -94,7 +93,7 @@ export function RepeatPaymentBottomSheet({ tx, open, onClose }: RepeatPaymentBot
           phone: details.phone || '',
           billers_code: details.billers_code || '',
           variation_code: details.variation_code || '',
-        }, { headers: { 'X-Idempotency-Key': idempotencyKey } })
+        })
       }
 
       const responseData = res.data.data ?? res.data
@@ -138,7 +137,7 @@ export function RepeatPaymentBottomSheet({ tx, open, onClose }: RepeatPaymentBot
         onClose()
         navigate('/payments/receipt', { replace: true, state: receiptState })
       } else {
-        setPinError(errData?.message || 'Incorrect PIN or payment failed.')
+        setPinError(errData?.message || 'Service not available at this time. Please try again later.')
         setPin('')
       }
     } finally {

@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { ChevronRightIcon, UserCircleIcon, BanknotesIcon, ExclamationTriangleIcon, ArrowRightStartOnRectangleIcon, ShieldCheckIcon } from '@heroicons/react/24/outline'
+import { ChevronRightIcon, UserCircleIcon, BanknotesIcon, ExclamationTriangleIcon, ArrowRightStartOnRectangleIcon, ShieldCheckIcon, ChartBarIcon } from '@heroicons/react/24/outline'
 import { useAuthStore } from '@/store/auth.store'
 import { useTenantStore } from '@/store/tenant.store'
 import { serverLogout } from '@/lib/api'
@@ -56,6 +56,7 @@ export function MoreScreen() {
         <MenuItem icon={UserCircleIcon}      label="Profile"          sub="Manage your account"            onClick={() => navigate('/more/profile')} />
         <MenuItem icon={ShieldCheckIcon}     label="KYC & Security"  sub="Identity & PIN settings"         onClick={() => navigate('/more/security')} />
         <MenuItem icon={BanknotesIcon}       label="Direct Debit"    sub="Manage NIBSS mandates"            onClick={() => navigate('/more/mandates')} />
+        <MenuItem icon={ChartBarIcon}        label="Analytics"       sub="Track your spending & income"     onClick={() => navigate('/more/analytics')} />
         <MenuItem icon={ExclamationTriangleIcon} label="Disputes"   sub="Raise & track disputes"           onClick={() => navigate('/more/disputes')} last />
       </div>
 

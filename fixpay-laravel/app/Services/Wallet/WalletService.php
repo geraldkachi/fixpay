@@ -100,4 +100,56 @@ class WalletService
     {
         return $this->credit($wallet, $amountKobo, $correlationId, "REVERSAL: {$description}");
     }
+
+    /**
+     * Temporarily hold funds (deduct available balance) without writing to the ledger.
+     */
+    public function hold(Wallet $wallet, int $amountKobo): void
+    {
+        if (! $wallet->hasSufficientBalance($amountKobo)) {
+            throw new \RuntimeException("Insufficient balance. Available: {$wallet->balance_kobo} kobo, Required: {$amountKobo} kobo.");
+        }
+
+        $wallet->lockForUpdate()->find($wallet->id);
+
+        $wallet->update([
+            'balance_kobo' => $wallet->balance_kobo - $amountKobo,
+        ]);
+    }
+
+    /**
+     * Finalize a hold by writing the ledger entry and deducting ledger balance.
+     */
+    public function commitHold(Wallet $wallet, int $amountKobo, string $correlationId, string $description): LedgerEntry
+    {
+        $wallet->lockForUpdate()->find($wallet->id);
+
+        $newLedgerBalance = $wallet->ledger_balance_kobo - $amountKobo;
+
+        $wallet->update([
+            'ledger_balance_kobo' => $newLedgerBalance,
+        ]);
+
+        return LedgerEntry::create([
+            'wallet_id' => $wallet->id,
+            'entry_type' => 'DEBIT',
+            'amount_kobo' => $amountKobo,
+            'running_balance_kobo' => $wallet->balance_kobo, // Reflect current available balance
+            'correlation_id' => $correlationId,
+            'description' => $description,
+            'currency' => $wallet->currency,
+        ]);
+    }
+
+    /**
+     * Release a hold by restoring the available balance (no ledger entry).
+     */
+    public function releaseHold(Wallet $wallet, int $amountKobo): void
+    {
+        $wallet->lockForUpdate()->find($wallet->id);
+
+        $wallet->update([
+            'balance_kobo' => $wallet->balance_kobo + $amountKobo,
+        ]);
+    }
 }

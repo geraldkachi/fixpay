@@ -9,6 +9,8 @@ import type { TenantConfig, ApiResponse } from '@/types'
 
 // Layout (eager — always rendered, tiny)
 import { AppShell } from '@/components/layout/AppShell'
+import { RouteErrorBoundary } from '@/components/layout/RouteErrorBoundary'
+import { DuplicatePaymentModal } from '@/components/feature/DuplicatePaymentModal'
 
 // Auth
 const SplashScreen       = lazy(() => import('@/modules/auth/SplashScreen').then(m => ({ default: m.SplashScreen })))
@@ -51,6 +53,7 @@ const MandatesScreen      = lazy(() => import('@/modules/more/MandatesScreen').t
 const DisputesScreen      = lazy(() => import('@/modules/more/DisputesScreen').then(m => ({ default: m.DisputesScreen })))
 const DisputeDetailScreen = lazy(() => import('@/modules/more/DisputeDetailScreen').then(m => ({ default: m.DisputeDetailScreen })))
 const RaiseDisputeScreen  = lazy(() => import('@/modules/more/RaiseDisputeScreen').then(m => ({ default: m.RaiseDisputeScreen })))
+const AnalyticsScreen     = lazy(() => import('@/modules/more/AnalyticsScreen').then(m => ({ default: m.AnalyticsScreen })))
 const PortalLaunchpadScreen = lazy(() => import('@/modules/dev/PortalLaunchpadScreen').then(m => ({ default: m.PortalLaunchpadScreen })))
 
 // ─── Guards ────────────────────────────────────────────────────────────────
@@ -104,50 +107,55 @@ function TenantLoader() {
 // ─── Router ───────────────────────────────────────────────────────────────
 
 const router = createBrowserRouter([
-  ...(import.meta.env.DEV ? [{ path: '/dev/launchpad', element: <PortalLaunchpadScreen /> }] : []),
-  { path: '/splash',         element: <SplashScreen /> },
-  { path: '/welcome',        element: <WelcomeScreen /> },
-  { path: '/auth/register',  element: <RegisterScreen /> },
-  { path: '/auth/login',     element: <LoginScreen /> },
-  { path: '/auth/otp',       element: <OtpScreen /> },
-  { path: '/auth/pin',       element: <CreatePinScreen /> },
-{
-    path: '/',
-    element: <RequireAuth />,
+  {
+    element: <Outlet />,
+    errorElement: <RouteErrorBoundary />,
     children: [
+      ...(import.meta.env.DEV ? [{ path: '/dev/launchpad', element: <PortalLaunchpadScreen /> }] : []),
+      { path: '/splash',         element: <SplashScreen /> },
+      { path: '/welcome',        element: <WelcomeScreen /> },
+      { path: '/auth/register',  element: <RegisterScreen /> },
+      { path: '/auth/login',     element: <LoginScreen /> },
+      { path: '/auth/otp',       element: <OtpScreen /> },
+      { path: '/auth/pin',       element: <CreatePinScreen /> },
       {
-        element: <AppShell />,
+        path: '/',
+        element: <RequireAuth />,
         children: [
-          { index: true,           element: <Navigate to="/home" replace /> },
-          { path: 'home',          element: <HomeScreen /> },
-          { path: 'payments',      element: <PaymentsScreen /> },
-          { path: 'send',          element: <SendScreen /> },
-          { path: 'wallet',        element: <WalletScreen /> },
-          { path: 'more',          element: <MoreScreen /> },
-
-          // Other protected pages
-          { path: 'kyc',                   element: <KycStepper /> },
-          { path: 'payments/airtime',      element: <AirtimeScreen /> },
-          { path: 'payments/data',         element: <DataScreen /> },
-          { path: 'payments/tv',           element: <TvScreen /> },
-          { path: 'payments/electricity',  element: <ElectricityScreen /> },
-          { path: 'payments/education',    element: <EducationScreen /> },
-          { path: 'payments/insurance',    element: <InsuranceScreen /> },
-          { path: 'payments/receipt',      element: <ReceiptScreen /> },
-          { path: 'payments/pending',      element: <PendingScreen /> },
-          { path: 'wallet/fund',                element: <FundWalletScreen /> },
-          { path: 'wallet/transactions/:id',  element: <TransactionDetailScreen /> },
-          { path: 'more/profile',             element: <ProfileScreen /> },
-          { path: 'more/security',            element: <SecurityScreen /> },
-          { path: 'more/mandates',         element: <MandatesScreen /> },
-          { path: 'more/disputes',         element: <DisputesScreen /> },
-          { path: 'more/disputes/new',     element: <RaiseDisputeScreen /> },
-          { path: 'more/disputes/:id',     element: <DisputeDetailScreen /> },
+          {
+            element: <AppShell />,
+            children: [
+              { index: true,           element: <Navigate to="/home" replace /> },
+              { path: 'home',          element: <HomeScreen /> },
+              { path: 'payments',      element: <PaymentsScreen /> },
+              { path: 'send',          element: <SendScreen /> },
+              { path: 'wallet',        element: <WalletScreen /> },
+              { path: 'more',          element: <MoreScreen /> },
+              { path: 'kyc',                   element: <KycStepper /> },
+              { path: 'payments/airtime',      element: <AirtimeScreen /> },
+              { path: 'payments/data',         element: <DataScreen /> },
+              { path: 'payments/tv',           element: <TvScreen /> },
+              { path: 'payments/electricity',  element: <ElectricityScreen /> },
+              { path: 'payments/education',    element: <EducationScreen /> },
+              { path: 'payments/insurance',    element: <InsuranceScreen /> },
+              { path: 'payments/receipt',      element: <ReceiptScreen /> },
+              { path: 'payments/pending',      element: <PendingScreen /> },
+              { path: 'wallet/fund',                element: <FundWalletScreen /> },
+              { path: 'wallet/transactions/:id',  element: <TransactionDetailScreen /> },
+              { path: 'more/profile',             element: <ProfileScreen /> },
+              { path: 'more/security',            element: <SecurityScreen /> },
+              { path: 'more/mandates',         element: <MandatesScreen /> },
+              { path: 'more/disputes',         element: <DisputesScreen /> },
+              { path: 'more/disputes/new',     element: <RaiseDisputeScreen /> },
+              { path: 'more/disputes/:id',     element: <DisputeDetailScreen /> },
+              { path: 'more/analytics',        element: <AnalyticsScreen /> },
+            ],
+          },
         ],
       },
-    ],
-  },
-  { path: '*', element: <Navigate to="/splash" replace /> },
+      { path: '*', element: <Navigate to="/splash" replace /> },
+    ]
+  }
 ])
 
 // ─── App ──────────────────────────────────────────────────────────────────
@@ -163,6 +171,7 @@ export default function App() {
     <Suspense fallback={<PageLoader />}>
       <TenantLoader />
       <RouterProvider router={router} />
+      <DuplicatePaymentModal />
       <DevModeToggle />
     </Suspense>
   )

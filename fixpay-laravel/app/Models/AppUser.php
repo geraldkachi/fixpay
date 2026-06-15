@@ -51,6 +51,11 @@ class AppUser extends Authenticatable
         return $this->hasOne(Wallet::class, 'user_id');
     }
 
+    public function favourites(): HasMany
+    {
+        return $this->hasMany(Favourite::class, 'user_id');
+    }
+
     public function kycVerifications(): HasMany
     {
         return $this->hasMany(KycVerification::class, 'user_id');

@@ -12,17 +12,19 @@ interface TxRow {
 
 class FixPayDB extends Dexie {
   transactions!: Table<TxRow, string>
+  analytics_cache!: Table<{ period: string; data: any; timestamp: string }, string>
 
   constructor() {
     super('fixpay-offline', { autoOpen: true })
-    this.version(1).stores({
-      // id is the primary key; updatedAt is indexed for ordering
+    this.version(2).stores({
       transactions: 'id, updatedAt',
+      analytics_cache: 'period'
     })
   }
 }
 
 const db = new FixPayDB()
+export default db
 
 // ── Public API ────────────────────────────────────────────────────────────────
 

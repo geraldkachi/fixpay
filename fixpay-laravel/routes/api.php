@@ -60,6 +60,15 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::put('profile', [UserController::class, 'updateProfile']);
     });
 
+    Route::get('analytics', [\App\Http\Controllers\User\AnalyticsController::class, 'show']);
+
+    // Favourites
+    Route::prefix('favourites')->group(function () {
+        Route::get('/', [\App\Http\Controllers\User\FavouriteController::class, 'index']);
+        Route::post('/', [\App\Http\Controllers\User\FavouriteController::class, 'store']);
+        Route::delete('{id}', [\App\Http\Controllers\User\FavouriteController::class, 'destroy']);
+    });
+
     // KYC
     Route::prefix('kyc')->group(function () {
         Route::post('bvn', [KycController::class, 'verifyBvn']);
@@ -78,7 +87,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('vtpass/services', [VtpassPaymentController::class, 'services']);
         Route::get('vtpass/variations', [VtpassPaymentController::class, 'variations']);
         Route::post('verify', [VtpassPaymentController::class, 'verify']);
-        Route::post('vtpass', [VtpassPaymentController::class, 'pay'])->middleware('idempotent');
+        Route::post('vtpass', [VtpassPaymentController::class, 'pay']);
         Route::get('vtpass/{reference}', [VtpassPaymentController::class, 'status']);
         Route::post('alternative/initiate', [AlternativePaymentController::class, 'initiate']);
         Route::post('alternative/verify', [AlternativePaymentController::class, 'verify']);
@@ -87,8 +96,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
     // Transfers
     Route::prefix('transfers')->group(function () {
         Route::get('/', [TransferController::class, 'index']);
-        Route::post('bank', [TransferController::class, 'toBank'])->middleware('idempotent');
-        Route::post('wallet', [TransferController::class, 'toWallet'])->middleware('idempotent');
+        Route::post('bank', [TransferController::class, 'toBank']);
+        Route::post('wallet', [TransferController::class, 'toWallet']);
         Route::get('{reference}', [TransferController::class, 'status']);
     });
 
