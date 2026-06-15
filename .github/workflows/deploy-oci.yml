@@ -34,7 +34,7 @@ jobs:
 
       - name: Install Frontend Dependencies
         working-directory: ./fixpay-pwa
-        run: npm ci
+        run: npm ci --legacy-peer-deps
 
       - name: Build Frontend (PWA)
         working-directory: ./fixpay-pwa
