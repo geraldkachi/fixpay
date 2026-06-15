@@ -174,6 +174,8 @@ class DataIsolationTest extends TestCase
                 'related_payment_type' => 'VTPASS',
                 'category' => 'WRONG_AMOUNT',
                 'reason' => 'Fraudulent charge',
+            ], [
+                'X-Idempotency-Key' => \Illuminate\Support\Str::uuid()->toString(),
             ]);
 
         $response->assertStatus(403)

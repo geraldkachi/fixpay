@@ -94,12 +94,12 @@ class TransferBlockTest extends TestCase
 
         // Mock the transfer service to avoid hitting real APIs
         $this->mock(\App\Services\Transfer\TransferService::class, function ($mock) {
-            $mock->shouldReceive('initiateBank')->andReturn((object)[
+            $mock->shouldReceive('initiateBank')->andReturn(new \App\Models\Transfer([
                 'transfer_reference' => 'ref_123',
                 'status' => 'PENDING',
                 'amount_kobo' => 10000,
                 'fee_kobo' => 5000,
-            ]);
+            ]));
         });
 
         $response = $this->postJson('/api/transfers/bank', [

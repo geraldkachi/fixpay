@@ -29,12 +29,14 @@ export function PaymentMethodsChart({ data }: PaymentMethodsChartProps) {
           <PieChart>
             <Pie
               data={chartData}
-              innerRadius={30}
-              outerRadius={50}
-              paddingAngle={2}
+              cx="50%" 
+              cy="50%" 
+              innerRadius={60} 
+              outerRadius={80} 
+              paddingAngle={2} 
               dataKey="value"
             >
-              {chartData.map((entry, index) => (
+              {chartData.map((_, index) => (
                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
               ))}
             </Pie>

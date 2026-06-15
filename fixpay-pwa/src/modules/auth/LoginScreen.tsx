@@ -57,7 +57,7 @@ export function LoginScreen() {
 
       // Derive auth flags from server-authoritative values — never trust stale localStorage.
       const hasPinFromServer: boolean = raw.has_pin === true
-      const isKycVerified = user.kycStatus === 'VERIFIED'
+      const isKycVerified = user.kycStatus === 'verified'
       setPinCreated(hasPinFromServer)
       setKycCompleted(isKycVerified)
 

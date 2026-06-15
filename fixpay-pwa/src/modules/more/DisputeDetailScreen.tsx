@@ -33,17 +33,17 @@ export function DisputeDetailScreen() {
           </div>
           <div className="text-right">
             <p className="text-[13px] text-gray-400">Raised On</p>
-            <p className="text-[13px] font-semibold text-gray-700 mt-0.5">{formatDateFull(dispute.created_at)}</p>
+            <p className="text-[13px] font-semibold text-gray-700 mt-0.5">{formatDateFull(dispute.createdAt)}</p>
           </div>
         </div>
 
         {/* Transaction */}
-        {dispute.related_payment_id && (
+        {dispute.transactionId && (
           <div className="bg-white rounded-[20px] p-4 mb-4">
             <p className="text-[12px] text-gray-400 uppercase tracking-wide mb-2">Related Transaction</p>
-            <p className="font-bold text-gray-900">{dispute.ticket_number || dispute.related_payment_id}</p>
+            <p className="font-bold text-gray-900">{dispute.id || dispute.transactionId}</p>
             <div className="flex items-center justify-between mt-1">
-              <p className="text-[13px] text-gray-500">{formatDateFull(dispute.transaction_date || dispute.created_at)}</p>
+              <p className="text-[13px] text-gray-500">{formatDateFull(dispute.createdAt)}</p>
             </div>
             {dispute.transaction && (
               <div className="mt-3 pt-3 border-t border-black/5 flex flex-col gap-1.5">
@@ -81,24 +81,24 @@ export function DisputeDetailScreen() {
         {/* Description */}
         <div className="bg-white rounded-[20px] p-4 mb-4">
           <p className="text-[12px] text-gray-400 uppercase tracking-wide mb-2">Your Complaint</p>
-          <p className="text-[15px] text-gray-800 leading-relaxed">{dispute.reason}</p>
+          <p className="text-[15px] text-gray-800 leading-relaxed">{dispute.description}</p>
           <p className="text-[12px] text-gray-400 mt-2">Category: <strong className="text-gray-600">{dispute.category?.replace(/_/g, ' ')}</strong></p>
         </div>
 
         {/* SLA */}
-        {dispute.sla_deadline && (
+        {dispute.slaDeadline && (
           <div className="bg-orange-50 rounded-[16px] p-4 mb-4">
             <p className="text-[13px] text-orange-700">
-              ⏱ Resolution deadline: <strong>{formatDateFull(dispute.sla_deadline)}</strong>
+              ⏱ Resolution deadline: <strong>{formatDateFull(dispute.slaDeadline)}</strong>
             </p>
           </div>
         )}
 
         {/* Resolution */}
-        {dispute.resolution_notes && (
+        {dispute.resolution && (
           <div className="bg-green-50 rounded-[20px] p-4">
             <p className="text-[12px] text-green-700 uppercase tracking-wide mb-2 font-semibold">Resolution</p>
-            <p className="text-[14px] text-green-900 leading-relaxed">{dispute.resolution_notes}</p>
+            <p className="text-[14px] text-green-900 leading-relaxed">{dispute.resolution}</p>
           </div>
         )}
       </div>

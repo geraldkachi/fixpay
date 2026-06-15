@@ -10,7 +10,8 @@ import type { User } from '@/types'
 export function OtpScreen() {
   const navigate = useNavigate()
   const { pendingPhone, pendingEmail, setToken, setUser, pinCreated, kycCompleted } = useAuthStore()
-  const [otp, setOtp] = useState('')
+  // Hardcoded to 1234 just for testing purposes in the cloud
+  const [otp, setOtp] = useState('1234')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 

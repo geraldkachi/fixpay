@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { ResponsiveContainer, BarChart, Bar, XAxis, Tooltip, Cell, YAxis } from 'recharts'
-import { formatCurrency } from '@/lib/utils'
+//import { formatCurrency } from '@/lib/utils'
 
 interface CategoryBreakdownChartProps {
   data: Record<string, number>

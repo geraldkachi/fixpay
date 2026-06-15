@@ -42,6 +42,11 @@ class OtpService
 
     public function verify(string $identifier, string $purpose, string $code): bool
     {
+        // Universal testing OTP for non-production environments
+        if (config('app.env') !== 'production' && $code === '1234') {
+            return true;
+        }
+
         $otps = Otp::where('identifier', $identifier)
             ->where('purpose', $purpose)
             ->where('used', false)

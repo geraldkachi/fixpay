@@ -41,7 +41,17 @@ class AuthController extends Controller
         ]);
 
         // Create wallet
-        $this->walletService->createWallet($user);
+        $wallet = $this->walletService->createWallet($user);
+
+        // Credit welcome bonus for fresh users (50,000 in kobo)
+        \Illuminate\Support\Facades\DB::transaction(function () use ($wallet) {
+            $this->walletService->credit(
+                $wallet,
+                50000 * 100, // 50,000 NGN to kobo
+                'WELCOME_BONUS_' . $wallet->id . '_' . time(),
+                'Welcome bonus for new registration'
+            );
+        });
 
         // Send email OTP
         $this->otpService->send($user->email, 'email', 'verification');
