@@ -13,7 +13,7 @@ interface AdminAuthState {
   username: string
   email: string
   roles: AdminRole[]
-  init: () => Promise<void>
+  init: (force?: boolean) => Promise<void>
   login: (credentials: { email: string; password: string }) => Promise<void>
   logout: () => Promise<void>
   hasRole: (role: AdminRole) => boolean
@@ -27,8 +27,8 @@ export const useAdminAuthStore = create<AdminAuthState>((set, get) => ({
   email: '',
   roles: [],
 
-  init: async () => {
-    if (get().isInitialised) return
+  init: async (force = false) => {
+    if (get().isInitialised && !force) return
 
     try {
       // Fetch CSRF cookie to ensure session works
@@ -56,7 +56,7 @@ export const useAdminAuthStore = create<AdminAuthState>((set, get) => ({
       identifier: credentials.email,
       password: credentials.password
     })
-    await get().init()
+    await get().init(true)
   },
 
   logout: async () => {

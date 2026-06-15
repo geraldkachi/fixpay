@@ -21,6 +21,11 @@ interface LedgerEntry {
   correlation_id: string
   description: string
   created_at: string
+  wallet?: {
+    tenant?: {
+      name: string
+    }
+  }
 }
 
 interface LaravelPaginatedResponse<T> {
@@ -37,15 +42,21 @@ export function TransactionLedgerScreen() {
   const [page, setPage] = useState(1)
   const [days, setDays] = useState(7)
   const [entryTypeFilter, setEntryTypeFilter] = useState<string>('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [tenantName, setTenantName] = useState('')
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['transactions', page, days, entryTypeFilter],
+    queryKey: ['transactions', page, days, entryTypeFilter, dateFrom, dateTo, tenantName],
     queryFn: async () => {
       const params = new URLSearchParams({
         page: page.toString(),
-        days: days.toString(),
       })
+      if (dateFrom) params.append('date_from', dateFrom)
+      if (dateTo) params.append('date_to', dateTo)
+      if (!dateFrom && !dateTo) params.append('days', days.toString())
       if (entryTypeFilter) params.append('entryType', entryTypeFilter)
+      if (tenantName) params.append('tenant_name', tenantName)
 
       const res = await api.get<LaravelPaginatedResponse<LedgerEntry>>(`/admin/transactions/ledger?${params}`)
       return res.data
@@ -63,6 +74,17 @@ export function TransactionLedgerScreen() {
     columnHelper.accessor('correlation_id', {
       header: 'Correlation ID',
       cell: info => <span className="font-mono text-xs text-slate-500">{info.getValue()?.substring(0, 12)}…</span>,
+    }),
+    columnHelper.accessor('wallet.tenant.name', {
+      header: 'Tenant',
+      cell: info => {
+        const val = info.getValue();
+        return val ? (
+          <span className="font-medium text-slate-700">{val}</span>
+        ) : (
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-500">Platform (Direct)</span>
+        )
+      },
     }),
     columnHelper.accessor('entry_type', {
       header: 'Type',
@@ -112,20 +134,41 @@ export function TransactionLedgerScreen() {
       {/* Filters */}
       <div className="mt-6 glass-card p-4 flex flex-wrap gap-4 items-end">
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">Timeframe</label>
-          <select
-            value={days}
+          <label className="block text-sm font-medium text-slate-700 mb-2">From Date</label>
+          <input
+            type="date"
+            value={dateFrom}
             onChange={(e) => {
-              setDays(Number(e.target.value))
+              setDateFrom(e.target.value)
               setPage(1)
             }}
             className="px-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/50"
-          >
-            <option value={1}>Last 24 Hours</option>
-            <option value={7}>Last 7 Days</option>
-            <option value={30}>Last 30 Days</option>
-            <option value={90}>Last 90 Days</option>
-          </select>
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-2">To Date</label>
+          <input
+            type="date"
+            value={dateTo}
+            onChange={(e) => {
+              setDateTo(e.target.value)
+              setPage(1)
+            }}
+            className="px-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/50"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-2">Tenant Name</label>
+          <input
+            type="text"
+            placeholder="Search tenant..."
+            value={tenantName}
+            onChange={(e) => {
+              setTenantName(e.target.value)
+              setPage(1)
+            }}
+            className="px-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/50"
+          />
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-2">Type</label>
@@ -142,6 +185,24 @@ export function TransactionLedgerScreen() {
             <option value="CREDIT">Credit</option>
           </select>
         </div>
+        {(!dateFrom && !dateTo) && (
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">Quick Timeframe</label>
+            <select
+              value={days}
+              onChange={(e) => {
+                setDays(Number(e.target.value))
+                setPage(1)
+              }}
+              className="px-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/50"
+            >
+              <option value={1}>Last 24 Hours</option>
+              <option value={7}>Last 7 Days</option>
+              <option value={30}>Last 30 Days</option>
+              <option value={90}>Last 90 Days</option>
+            </select>
+          </div>
+        )}
       </div>
 
       {/* Data Table */}

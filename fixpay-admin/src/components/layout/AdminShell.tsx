@@ -14,7 +14,7 @@ import {
   ChevronDownIcon,
   ArrowRightOnRectangleIcon,
 } from '@heroicons/react/24/outline'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 interface NavItem {
   label: string
@@ -106,6 +106,16 @@ function SidebarItem({ item }: { item: NavItem }) {
 export function AdminShell() {
   const { username, email, logout } = useAdminAuthStore()
   const navigate = useNavigate()
+
+  useEffect(() => {
+    // Trap the back button
+    window.history.pushState(null, '', window.location.href)
+    const onPopState = () => {
+      window.history.pushState(null, '', window.location.href)
+    }
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [])
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden">
