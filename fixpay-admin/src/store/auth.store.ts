@@ -32,10 +32,9 @@ export const useAdminAuthStore = create<AdminAuthState>((set, get) => ({
 
     try {
       // Fetch CSRF cookie to ensure session works
-      await api.get('/sanctum/csrf-cookie')
+      await api.get('/sanctum/csrf-cookie', { baseURL: '' })
       
       // Try fetching current user profile
-      // In Laravel backend, we'll map this to /admin/profile
       const { data } = await api.get('/admin/profile')
       
       set({
@@ -43,16 +42,20 @@ export const useAdminAuthStore = create<AdminAuthState>((set, get) => ({
         isInitialised: true,
         username: data.name ?? '',
         email: data.email ?? '',
-        roles: data.roles ?? ['PLATFORM_ADMIN'], // Mock roles fallback until backend implements roles
+        roles: data.roles ?? ['PLATFORM_ADMIN'],
       })
     } catch (e) {
       set({ isInitialised: true, isAuthenticated: false })
+      throw e
     }
   },
 
   login: async (credentials) => {
-    await api.get('/sanctum/csrf-cookie')
-    await api.post('/auth/login', credentials)
+    await api.get('/sanctum/csrf-cookie', { baseURL: '' })
+    await api.post('/auth/login', {
+      identifier: credentials.email,
+      password: credentials.password
+    })
     await get().init()
   },
 

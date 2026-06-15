@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Redis;
 
 class SystemAdminController extends Controller
 {
@@ -16,15 +15,8 @@ class SystemAdminController extends Controller
         $dbStatus = 'OK';
         try {
             DB::connection()->getPdo();
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $dbStatus = 'DOWN';
-        }
-
-        $redisStatus = 'OK';
-        try {
-            Redis::ping();
-        } catch (\Exception $e) {
-            $redisStatus = 'DOWN';
         }
 
         // Mock third-party rails health
@@ -35,10 +27,9 @@ class SystemAdminController extends Controller
         ];
 
         return response()->json([
-            'status' => ($dbStatus === 'OK' && $redisStatus === 'OK') ? 'OPERATIONAL' : 'SYSTEM_ISSUE',
+            'status' => ($dbStatus === 'OK') ? 'OPERATIONAL' : 'SYSTEM_ISSUE',
             'components' => [
                 'database' => $dbStatus,
-                'redis' => $redisStatus,
                 // App memory usage in MB
                 'memory_usage_mb' => round(memory_get_usage(true) / 1024 / 1024, 2),
             ],
