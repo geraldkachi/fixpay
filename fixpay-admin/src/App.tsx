@@ -39,8 +39,10 @@ import { FraudCasesScreen } from '@/modules/risk/FraudCasesScreen'
 
 // ─── Initialisation gate ───────────────────────────────────────────────────
 
+import { LoginScreen } from '@/modules/auth/LoginScreen'
+
 function AppInit() {
-  const { init, isInitialised } = useAdminAuthStore()
+  const { init, isInitialised, isAuthenticated } = useAdminAuthStore()
 
   useEffect(() => { void init() }, [init])
 
@@ -50,6 +52,10 @@ function AppInit() {
         <div className="text-slate-500 text-sm">Authenticating…</div>
       </div>
     )
+  }
+
+  if (!isAuthenticated) {
+    return <LoginScreen />
   }
 
   return <Outlet />

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -21,7 +21,7 @@ const bvnSchema = z.object({
   dob: z.string().min(1, 'Date of birth is required')
 })
 
-function NinStep({ onDone }: { onDone: () => void }) {
+function NinStep({ onDone, onSkip }: { onDone: () => void; onSkip: () => void }) {
   const [err, setErr] = useState('')
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<{ nin: string }>({ resolver: zodResolver(ninSchema) })
   const onSubmit = async (data: { nin: string }) => {
@@ -40,19 +40,79 @@ function NinStep({ onDone }: { onDone: () => void }) {
         error={errors.nin?.message} {...register('nin')} />
       {err && <p className="text-ios-red text-[13px] text-center">{err}</p>}
       <Button type="submit" fullWidth loading={isSubmitting}>Verify NIN</Button>
+      <Button type="button" variant="ghost" onClick={onSkip} className="text-brand" fullWidth>Continue Later</Button>
       <p className="text-[12px] text-center text-gray-400">Demo: use any 11-digit number</p>
     </form>
   )
 }
 
-function BvnStep({ onDone }: { onDone: () => void }) {
+function BvnStep({ onDone, onSkip }: { onDone: () => void; onSkip: () => void }) {
   const [err, setErr] = useState('')
+  const [awaiting, setAwaiting] = useState(false)
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<{ bvn: string; dob: string }>({ resolver: zodResolver(bvnSchema) })
+  
+  const startPolling = async (attempt = 0) => {
+    const delays = [10000, 240000, 600000, 1200000, 1500000]
+    if (attempt >= delays.length) {
+      setErr('BVN verification timed out. Please try again.')
+      setAwaiting(false)
+      return
+    }
+    
+    setTimeout(async () => {
+      try {
+        const res = await api.get('/kyc/status')
+        const bvnStatus = res.data.verifications?.find((v: any) => v.type === 'BVN_CONSENT' || v.type === 'BVN')?.status
+        if (bvnStatus === 'VERIFIED') {
+          onDone()
+        } else if (bvnStatus === 'FAILED') {
+          setErr('BVN verification failed at NIBSS.')
+          setAwaiting(false)
+        } else {
+          startPolling(attempt + 1)
+        }
+      } catch (e) {
+        startPolling(attempt + 1)
+      }
+    }, delays[attempt])
+  }
+
   const onSubmit = async (data: { bvn: string; dob: string }) => {
     setErr('')
-    try { await api.post('/kyc/bvn', data); onDone() }
+    try { 
+      const res = await api.post('/kyc/bvn/consent/initiate', data) 
+      if (res.data.status === 'PENDING') {
+        setAwaiting(true)
+        if (res.data.consentUrl) {
+          window.open(res.data.consentUrl, '_blank')
+        }
+        startPolling(0)
+      } else if (res.data.status === 'VERIFIED') {
+        onDone()
+      }
+    }
     catch { setErr('Could not verify BVN. Check the number and retry.') }
   }
+
+  if (awaiting) {
+    return (
+      <div className="flex flex-col items-center gap-5 pt-8">
+        <p className="text-[28px]">⏳</p>
+        <h2 className="text-[20px] font-bold text-gray-900 mt-2">Awaiting NIBSS Response</h2>
+        <p className="text-[14px] text-gray-500 mt-1 text-center px-4">
+          BVN validation is ongoing with NIBSS. You will be informed as soon as details are received.
+        </p>
+        <p className="text-[12px] text-gray-400 mt-4 text-center px-4">
+          Please complete the authentication on the NIBSS portal that opened in a new tab.
+        </p>
+        <div className="flex flex-col gap-3 w-full mt-4">
+          <Button variant="outline" onClick={() => setAwaiting(false)} className="w-full">Cancel &amp; Retry</Button>
+          <Button variant="ghost" onClick={onSkip} className="text-brand w-full">Continue Later</Button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5">
       <div className="text-center mb-2">
@@ -66,6 +126,7 @@ function BvnStep({ onDone }: { onDone: () => void }) {
         error={errors.bvn?.message} {...register('bvn')} />
       {err && <p className="text-ios-red text-[13px] text-center">{err}</p>}
       <Button type="submit" fullWidth loading={isSubmitting}>Verify BVN</Button>
+      <Button type="button" variant="ghost" onClick={onSkip} className="text-brand" fullWidth>Continue Later</Button>
       <p className="text-[12px] text-center text-gray-400">Demo: use any 11-digit number</p>
     </form>
   )
@@ -90,21 +151,83 @@ function SelfieStep({ onDone, loading }: { onDone: () => void; loading: boolean 
 
 export function KycStepper() {
   const navigate = useNavigate()
-  const { setKycCompleted } = useAuthStore()
-  const [step, setStep] = useState<Step>(0)
+  const { setKycCompleted, setKycDeferred } = useAuthStore()
+  
+  const [loadingStatus, setLoadingStatus] = useState(true)
+  const [unvalidatedSteps, setUnvalidatedSteps] = useState<Step[]>([0, 1, 2])
+  const [currentStepIndex, setCurrentStepIndex] = useState(0)
+
   const [selfieLoading, setSelfieLoading] = useState(false)
   const [done, setDone] = useState(false)
+
+  useEffect(() => {
+    async function checkStatus() {
+      try {
+        const res = await api.get('/kyc/status')
+        const verifications = res.data.verifications || []
+        const hasNin = verifications.some((v: any) => v.type === 'NIN' && v.status === 'VERIFIED')
+        const hasBvn = verifications.some((v: any) => (v.type === 'BVN' || v.type === 'BVN_CONSENT') && v.status === 'VERIFIED')
+        
+        const steps: Step[] = []
+        if (!hasNin) steps.push(0)
+        if (!hasBvn) steps.push(1)
+        steps.push(2) // Selfie is always last
+        
+        setUnvalidatedSteps(steps)
+      } catch (e) {
+        // use default [0,1,2] if error
+      } finally {
+        setLoadingStatus(false)
+      }
+    }
+    checkStatus()
+  }, [])
+
+  const handleNext = () => {
+    if (currentStepIndex + 1 < unvalidatedSteps.length) {
+      setCurrentStepIndex(curr => curr + 1)
+    }
+  }
+
+  const deferKyc = () => {
+    setKycDeferred(true)
+    navigate('/home')
+  }
+
+  const handleSkip = () => {
+    // If the next step is selfie, and we skipped NIN or BVN, we just defer KYC
+    // because we shouldn't allow completing Selfie if previous steps are explicitly skipped.
+    const nextStep = unvalidatedSteps[currentStepIndex + 1]
+    if (nextStep === 2) {
+      deferKyc()
+    } else {
+      handleNext()
+    }
+  }
 
   const handleSelfie = async () => {
     setSelfieLoading(true)
     try {
-      // await api.post('/kyc/selfie', {})
       await new Promise(r => setTimeout(r, 800)) // simulate network delay
       setDone(true)
+      
+      // If they skipped NIN or BVN, don't mark completely verified globally.
+      // But for this flow, if they successfully reach the end, we consider them done
+      // or we check if there are unvalidated steps left?
+      // Since they only arrive at Selfie if they didn't skip the prior steps, they are fully done.
       setKycCompleted(true)
+      useAuthStore.getState().setKycDeferred(false)
       setTimeout(() => navigate('/home', { replace: true }), 1800)
     } catch { /* ignore */ }
     finally { setSelfieLoading(false) }
+  }
+
+  if (loadingStatus) {
+    return (
+      <div className="h-[100dvh] flex items-center justify-center bg-[#F2F2F7]">
+        <div className="w-8 h-8 rounded-full border-4 border-gray-200 border-t-brand animate-spin" />
+      </div>
+    )
   }
 
   if (done) return (
@@ -115,28 +238,33 @@ export function KycStepper() {
     </div>
   )
 
+  const step = unvalidatedSteps[currentStepIndex]
+
   return (
     <div className="flex flex-col h-[100dvh] bg-[#F2F2F7]">
-      <PageHeader title="Identity Verification" />
+      <PageHeader title="Identity Verification" onBack={currentStepIndex > 0 ? () => setCurrentStepIndex(curr => curr - 1) : undefined} />
 
-      {/* Progress bar */}
+      {/* Progress bar visually maps 0, 1, 2 even if skipping internally */}
       <div className="flex gap-2 px-4 pb-4 shrink-0">
-        {STEPS.map((s, i) => (
-          <div key={s} className="flex-1 flex flex-col items-center gap-1">
-            <div className={cn('h-1 w-full rounded-full transition-all duration-500', i <= step ? 'opacity-100' : 'bg-gray-200')}
-              style={i <= step ? { background: 'var(--brand-primary)' } : undefined} />
-            <span className={cn('text-[11px] font-medium', i <= step ? 'text-brand' : 'text-gray-400')}
-              style={i <= step ? { color: 'var(--brand-primary)' } : undefined}>{s}</span>
-          </div>
-        ))}
+        {STEPS.map((s, i) => {
+          const isActiveOrPassed = i <= step
+          return (
+            <div key={s} className="flex-1 flex flex-col items-center gap-1">
+              <div className={cn('h-1 w-full rounded-full transition-all duration-500', isActiveOrPassed ? 'opacity-100' : 'bg-gray-200')}
+                style={isActiveOrPassed ? { background: 'var(--brand-primary)' } : undefined} />
+              <span className={cn('text-[11px] font-medium', isActiveOrPassed ? 'text-brand' : 'text-gray-400')}
+                style={isActiveOrPassed ? { color: 'var(--brand-primary)' } : undefined}>{s}</span>
+            </div>
+          )
+        })}
       </div>
 
       <div className="flex-1 overflow-y-auto no-scrollbar px-4 pb-8">
         <AnimatePresence mode="wait">
           <motion.div key={step} initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -40 }}
             transition={{ duration: 0.25 }}>
-            {step === 0 && <NinStep onDone={() => setStep(1)} />}
-            {step === 1 && <BvnStep onDone={() => setStep(2)} />}
+            {step === 0 && <NinStep onDone={handleNext} onSkip={handleSkip} />}
+            {step === 1 && <BvnStep onDone={handleNext} onSkip={handleSkip} />}
             {step === 2 && <SelfieStep onDone={handleSelfie} loading={selfieLoading} />}
           </motion.div>
         </AnimatePresence>

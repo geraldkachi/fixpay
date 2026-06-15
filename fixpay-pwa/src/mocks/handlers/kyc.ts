@@ -8,20 +8,28 @@ export const kycHandlers = [
     return HttpResponse.json({ success: true, message: 'NIN verified - firstName=, lastName=', data: { firstName: '', lastName: '' } })
   }),
 
-  http.post('/api/kyc/bvn', async ({ request }) => {
+  http.post('/api/kyc/bvn/consent/initiate', async ({ request }) => {
     await delay(1200)
     const body = await request.json() as Record<string, string>
-    if (!body.bvn || body.bvn.length !== 11) return HttpResponse.json({ success: false, message: 'Invalid BVN' }, { status: 400 })
-    return HttpResponse.json({ success: true, message: 'BVN verified - bank=', data: { bank: '' } })
-  }),
-
-  http.post('/api/kyc/selfie', async () => {
-    await delay(2000)
-    return HttpResponse.json({ success: true, message: 'Liveness check passed', data: { score: '0.97' } })
+    if (!body.bvn || body.bvn.length !== 11) return HttpResponse.json({ status: 'FAILED', message: 'Invalid BVN' }, { status: 400 })
+    return HttpResponse.json({
+      status: 'PENDING',
+      message: 'Consent initiated successfully.',
+      consentUrl: 'https://apitest.nibss-plc.com.ng/api/consent/mock?sessionId=mock_session_from_msw',
+      sessionId: 'mock_session_from_msw'
+    })
   }),
 
   http.get('/api/kyc/status', async () => {
     await delay(300)
-    return HttpResponse.json({ status: 'verified', ninVerified: true, bvnVerified: true, selfiePassed: true })
+    // MSW will return VERIFIED for testing, so the frontend unblocks on the first poll
+    return HttpResponse.json({
+      kyc_status: 'PENDING',
+      tier: 1,
+      verifications: [
+        { type: 'NIN', status: 'VERIFIED' },
+        { type: 'BVN', status: 'VERIFIED' }
+      ]
+    })
   }),
 ]

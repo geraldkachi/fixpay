@@ -11,21 +11,21 @@ interface Tenant {
   name: string
   plan: 'STARTER' | 'GROWTH' | 'ENTERPRISE'
   status: 'ACTIVE' | 'SUSPENDED' | 'OFFBOARDED'
-  kybStatus: 'PENDING' | 'IN_REVIEW' | 'APPROVED' | 'REJECTED'
+  kyb_status: 'PENDING' | 'IN_REVIEW' | 'APPROVED' | 'REJECTED'
   active: boolean
-  createdAt: string
+  created_at: string
 }
 
-interface TenantListResponse {
-  content: Tenant[]
-  totalElements: number
-  totalPages: number
-  number: number
+interface LaravelPaginatedResponse<T> {
+  data: T[]
+  current_page: number
+  last_page: number
+  total: number
 }
 
 export function TenantListScreen() {
   const navigate = useNavigate()
-  const [page, setPage] = useState(0)
+  const [page, setPage] = useState(1)
   const [statusFilter, setStatusFilter] = useState<string>('')
   const [planFilter, setPlanFilter] = useState<string>('')
   const [searchTerm, setSearchTerm] = useState('')
@@ -35,18 +35,17 @@ export function TenantListScreen() {
     queryFn: async () => {
       const params = new URLSearchParams({
         page: page.toString(),
-        size: '20',
       })
       if (statusFilter) params.append('status', statusFilter)
       if (planFilter) params.append('plan', planFilter)
       if (searchTerm) params.append('search', searchTerm)
 
-      const res = await api.get<{ data: TenantListResponse }>(`/admin/tenants?${params}`)
-      return res.data.data
+      const res = await api.get<LaravelPaginatedResponse<Tenant>>(`/admin/tenants?${params}`)
+      return res.data
     },
   })
 
-  const tenants = data?.content ?? []
+  const tenants = data?.data ?? []
 
   const planBadgeColor: Record<string, string> = {
     STARTER: 'bg-blue-100 text-blue-800',
@@ -68,11 +67,11 @@ export function TenantListScreen() {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-6 animate-fade-in">
       <PageHeader title="Tenants" subtitle="Manage all registered tenants and their settings" />
 
       {/* Filters */}
-      <div className="mt-6 flex gap-4 items-end">
+      <div className="mt-6 glass-card p-4 flex gap-4 items-end flex-wrap">
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-2">Search</label>
           <input
@@ -80,10 +79,10 @@ export function TenantListScreen() {
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value)
-              setPage(0)
+              setPage(1)
             }}
             placeholder="Search by name or slug…"
-            className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/50"
           />
         </div>
         <div>
@@ -92,9 +91,9 @@ export function TenantListScreen() {
             value={statusFilter}
             onChange={(e) => {
               setStatusFilter(e.target.value)
-              setPage(0)
+              setPage(1)
             }}
-            className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/50"
           >
             <option value="">All statuses</option>
             <option value="ACTIVE">Active</option>
@@ -108,9 +107,9 @@ export function TenantListScreen() {
             value={planFilter}
             onChange={(e) => {
               setPlanFilter(e.target.value)
-              setPage(0)
+              setPage(1)
             }}
-            className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/50"
           >
             <option value="">All plans</option>
             <option value="STARTER">Starter</option>
@@ -121,99 +120,101 @@ export function TenantListScreen() {
       </div>
 
       {/* Table */}
-      <div className="mt-6 overflow-x-auto shadow ring-1 ring-black ring-opacity-5 rounded-lg">
-        {isLoading ? (
-          <div className="p-6 text-center text-slate-500">Loading tenants…</div>
-        ) : error ? (
-          <div className="p-6 text-center text-red-600">Failed to load tenants</div>
-        ) : tenants.length === 0 ? (
-          <div className="p-6 text-center text-slate-500">No tenants found</div>
-        ) : (
-          <table className="min-w-full divide-y divide-slate-200">
-            <thead className="bg-slate-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-700 uppercase tracking-wider">Name</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-700 uppercase tracking-wider">Plan</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-700 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-700 uppercase tracking-wider">KYB</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-700 uppercase tracking-wider">Created</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-700 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-slate-200">
-              {tenants.map((tenant) => (
-                <tr key={tenant.id} className="hover:bg-slate-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-slate-900">{tenant.name}</div>
-                    <div className="text-xs text-slate-500">{tenant.slug}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${planBadgeColor[tenant.plan] || ''}`}>
-                      {tenant.plan}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${statusBadgeColor[tenant.status] || ''}`}>
-                      {tenant.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${kybBadgeColor[tenant.kybStatus] || ''}`}>
-                      {tenant.kybStatus}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                    {new Date(tenant.createdAt).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => navigate(`/tenants/${tenant.id}`)}
-                        className="text-blue-600 hover:text-blue-800"
-                        title="View details"
-                      >
-                        <EyeIcon className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => navigate(`/tenants/${tenant.id}`)}
-                        className="text-slate-600 hover:text-slate-800"
-                        title="Edit"
-                      >
-                        <PencilIcon className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
+      <div className="mt-6 glass-panel overflow-hidden">
+        <div className="overflow-x-auto">
+          {isLoading ? (
+            <div className="p-12 text-center text-slate-500 animate-pulse">Loading tenants…</div>
+          ) : error ? (
+            <div className="p-12 text-center text-red-600 bg-red-50">Failed to load tenants</div>
+          ) : tenants.length === 0 ? (
+            <div className="p-12 text-center text-slate-500">No tenants found</div>
+          ) : (
+            <table className="min-w-full divide-y divide-slate-200/60">
+              <thead className="bg-slate-50/50">
+                <tr>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Name</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Plan</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">KYB</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Created</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-200/60">
+                {tenants.map((tenant) => (
+                  <tr key={tenant.id} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-slate-900">{tenant.name}</div>
+                      <div className="text-xs text-slate-500">{tenant.slug}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${planBadgeColor[tenant.plan] || ''}`}>
+                        {tenant.plan}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${statusBadgeColor[tenant.status] || ''}`}>
+                        {tenant.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${kybBadgeColor[tenant.kyb_status] || kybBadgeColor['PENDING']}`}>
+                        {tenant.kyb_status || 'PENDING'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                      {tenant.created_at ? new Date(tenant.created_at).toLocaleDateString() : '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => navigate(`/tenants/${tenant.id}`)}
+                          className="text-blue-600 hover:text-blue-800 transition-colors"
+                          title="View details"
+                        >
+                          <EyeIcon className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() => navigate(`/tenants/${tenant.id}`)}
+                          className="text-slate-600 hover:text-slate-800 transition-colors"
+                          title="Edit"
+                        >
+                          <PencilIcon className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {/* Pagination Controls */}
+        {data && data.last_page > 1 && (
+          <div className="px-6 py-4 border-t border-slate-200/60 bg-slate-50/30 flex justify-between items-center">
+            <span className="text-sm text-slate-600 font-medium">
+              Page {data.current_page} of {data.last_page}
+            </span>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={data.current_page === 1}
+                className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50 transition-colors shadow-sm"
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => setPage(p => p + 1)}
+                disabled={data.current_page >= data.last_page}
+                className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50 transition-colors shadow-sm"
+              >
+                Next
+              </button>
+            </div>
+          </div>
         )}
       </div>
-
-      {/* Pagination */}
-      {data && data.totalPages > 1 && (
-        <div className="mt-6 flex justify-between items-center">
-          <div className="text-sm text-slate-600">
-            Page {page + 1} of {data.totalPages}
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setPage(Math.max(0, page - 1))}
-              disabled={page === 0}
-              className="px-4 py-2 text-sm font-medium text-slate-700 border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50"
-            >
-              Previous
-            </button>
-            <button
-              onClick={() => setPage(page + 1)}
-              disabled={page >= data.totalPages - 1}
-              className="px-4 py-2 text-sm font-medium text-slate-700 border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50"
-            >
-              Next
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

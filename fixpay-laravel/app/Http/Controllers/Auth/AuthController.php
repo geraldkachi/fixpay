@@ -58,7 +58,7 @@ class AuthController extends Controller
         $data = $request->validate([
             'identifier' => 'required|string',
             'purpose'    => 'required|in:verification,login',
-            'code'       => 'required|string|size:6',
+            'code'       => 'required|string|size:4',
         ]);
 
         $valid = $this->otpService->verify($data['identifier'], $data['purpose'], $data['code']);
@@ -99,6 +99,9 @@ class AuthController extends Controller
             return response()->json(['message' => 'Account is not active.'], 403);
         }
 
+        // Authenticate the user in the session for SPA cookie-based auth
+        \Illuminate\Support\Facades\Auth::login($user);
+
         $ttl = (int) config('sanctum.access_token_expiration', 60);
         $token = $user->createToken('access', ['*'], now()->addMinutes($ttl));
 
@@ -127,7 +130,14 @@ class AuthController extends Controller
     /** POST /api/auth/logout */
     public function logout(Request $request): JsonResponse
     {
-        $request->user()->currentAccessToken()->delete();
+        $token = $request->user()?->currentAccessToken();
+        if ($token && method_exists($token, 'delete')) {
+            $token->delete();
+        }
+
+        \Illuminate\Support\Facades\Auth::guard('web')->logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
 
         return response()->json(['message' => 'Logged out.']);
     }

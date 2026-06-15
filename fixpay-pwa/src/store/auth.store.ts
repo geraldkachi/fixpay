@@ -16,6 +16,7 @@ interface AuthState {
   isAuthenticated: boolean
   pinCreated: boolean
   kycCompleted: boolean
+  kycDeferred: boolean
   pendingPhone: string | null
   pendingEmail: string | null
   /** True once zustand-persist has finished reading from localStorage */
@@ -24,6 +25,7 @@ interface AuthState {
   setUser: (user: User) => void
   setPinCreated: (v: boolean) => void
   setKycCompleted: (v: boolean) => void
+  setKycDeferred: (v: boolean) => void
   setPending: (phone?: string, email?: string) => void
   logout: () => void
   setHasHydrated: (v: boolean) => void
@@ -37,6 +39,7 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       pinCreated: false,
       kycCompleted: false,
+      kycDeferred: false,
       pendingPhone: null,
       pendingEmail: null,
       _hasHydrated: false,
@@ -44,18 +47,21 @@ export const useAuthStore = create<AuthState>()(
       setUser: (user) => set({ user }),
       setPinCreated: (v) => set({ pinCreated: v }),
       setKycCompleted: (v) => set({ kycCompleted: v }),
+      setKycDeferred: (v) => set({ kycDeferred: v }),
       setPending: (phone, email) => set({ pendingPhone: phone ?? null, pendingEmail: email ?? null }),
       logout: () => set({ token: null, user: null, isAuthenticated: false, pinCreated: false, kycCompleted: false }),
       setHasHydrated: (v) => set({ _hasHydrated: v }),
     }),
     {
       name: 'fixpay-auth',
-      // token and _hasHydrated are memory-only — never written to localStorage.
+      // _hasHydrated is memory-only — never written to localStorage.
       partialize: (state) => ({
+        token: state.token,
         user: state.user,
         isAuthenticated: state.isAuthenticated,
         pinCreated: state.pinCreated,
         kycCompleted: state.kycCompleted,
+        kycDeferred: state.kycDeferred,
         pendingPhone: state.pendingPhone,
         pendingEmail: state.pendingEmail,
       }),

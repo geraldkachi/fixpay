@@ -1,7 +1,5 @@
 import { create } from 'zustand'
-import keycloak from '@/lib/keycloak'
-
-let initPromise: Promise<void> | null = null
+import { api } from '@/lib/api'
 
 export type AdminRole =
   | 'PLATFORM_ADMIN'
@@ -15,9 +13,9 @@ interface AdminAuthState {
   username: string
   email: string
   roles: AdminRole[]
-  /** Call once on app boot — initialises Keycloak PKCE flow */
-  init: () => Promise<void>
-  logout: () => void
+  init: (force?: boolean) => Promise<void>
+  login: (credentials: { email: string; password: string }) => Promise<void>
+  logout: () => Promise<void>
   hasRole: (role: AdminRole) => boolean
   hasAnyRole: (...roles: AdminRole[]) => boolean
 }
@@ -29,46 +27,51 @@ export const useAdminAuthStore = create<AdminAuthState>((set, get) => ({
   email: '',
   roles: [],
 
-  init: async () => {
-    if (get().isInitialised) return
-    if (initPromise) return initPromise
+  init: async (force = false) => {
+    if (get().isInitialised && !force) return
 
-    initPromise = (async () => {
-      try {
-        const authenticated = await keycloak.init({
-          onLoad: 'login-required',
-          pkceMethod: 'S256',
-          checkLoginIframe: false,
-        })
-
-        if (authenticated) {
-          const profile = keycloak.tokenParsed as Record<string, unknown>
-          const realmRoles = (
-            (profile?.realm_access as { roles?: string[] })?.roles ?? []
-          ) as AdminRole[]
-
-          set({
-            isAuthenticated: true,
-            isInitialised: true,
-            username: (profile?.preferred_username as string) ?? '',
-            email: (profile?.email as string) ?? '',
-            roles: realmRoles,
-          })
-        } else {
-          set({ isInitialised: true })
-        }
-      } catch {
-        set({ isInitialised: true })
-      } finally {
-        initPromise = null
-      }
-    })()
-
-    return initPromise
+    try {
+      // Fetch CSRF cookie to ensure session works
+      await api.get('/sanctum/csrf-cookie', { baseURL: '' })
+      
+      // Try fetching current user profile
+      const { data } = await api.get('/admin/profile')
+      
+      set({
+        isAuthenticated: true,
+        isInitialised: true,
+        username: data.name ?? '',
+        email: data.email ?? '',
+        roles: data.roles ?? ['PLATFORM_ADMIN'],
+      })
+    } catch (e) {
+      set({ isInitialised: true, isAuthenticated: false })
+      throw e
+    }
   },
 
-  logout: () => {
-    keycloak.logout({ redirectUri: window.location.origin })
+  login: async (credentials) => {
+    await api.get('/sanctum/csrf-cookie', { baseURL: '' })
+    await api.post('/auth/login', {
+      identifier: credentials.email,
+      password: credentials.password
+    })
+    await get().init(true)
+  },
+
+  logout: async () => {
+    try {
+      await api.post('/auth/logout')
+    } catch {
+      // Ignore errors on logout
+    } finally {
+      set({
+        isAuthenticated: false,
+        username: '',
+        email: '',
+        roles: [],
+      })
+    }
   },
 
   hasRole: (role) => get().roles.includes(role),

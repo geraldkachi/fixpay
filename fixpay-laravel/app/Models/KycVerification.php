@@ -14,6 +14,8 @@ class KycVerification extends Model
         'user_id', 'type', 'identifier', 'provider',
         'provider_reference', 'verification_status',
         'response_json', 'failure_reason', 'verified_at',
+        'nibss_session_id', 'nibss_retrieval_token', 'consent_expiry_time',
+        'bvn_consent_status',
     ];
 
     protected $casts = [

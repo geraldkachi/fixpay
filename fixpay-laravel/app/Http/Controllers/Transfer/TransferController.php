@@ -26,6 +26,11 @@ class TransferController extends Controller
         ]);
 
         $user = $request->user();
+
+        if ($user->kyc_status !== 'VERIFIED') {
+            return response()->json(['message' => 'Complete your KYC verification to initiate transfers.'], 403);
+        }
+
         $wallet = $user->wallet;
 
         if (! $wallet || $wallet->status !== 'ACTIVE') {
@@ -61,6 +66,11 @@ class TransferController extends Controller
         ]);
 
         $user = $request->user();
+
+        if ($user->kyc_status !== 'VERIFIED') {
+            return response()->json(['message' => 'Complete your KYC verification to initiate transfers.'], 403);
+        }
+
         $wallet = $user->wallet;
 
         if (! $wallet || $wallet->status !== 'ACTIVE') {

@@ -59,7 +59,7 @@ const PortalLaunchpadScreen = lazy(() => import('@/modules/dev/PortalLaunchpadSc
 // ─── Guards ────────────────────────────────────────────────────────────────
 
 function RequireAuth() {
-  const { isAuthenticated, kycCompleted, pinCreated, _hasHydrated } = useAuthStore()
+  const { isAuthenticated, kycCompleted, pinCreated, kycDeferred, _hasHydrated } = useAuthStore()
   const { pathname } = useLocation()
 
   // In dev, root opens the launchpad so engineers can jump between apps quickly.
@@ -77,7 +77,7 @@ function RequireAuth() {
 
   if (!isAuthenticated)                        return <Navigate to="/auth/login" replace />
   if (!pinCreated)                             return <Navigate to="/auth/pin"   replace />
-  if (!kycCompleted && pathname !== '/kyc')    return <Navigate to="/kyc"        replace />
+  if (!kycCompleted && !kycDeferred && pathname !== '/kyc') return <Navigate to="/kyc" replace />
   return <Outlet />
 }
 
