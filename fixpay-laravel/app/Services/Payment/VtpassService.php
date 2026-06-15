@@ -7,14 +7,12 @@ use App\Models\PaymentJournalEntry;
 use App\Models\VtpassPayment;
 use App\Models\Wallet;
 use App\Services\Wallet\WalletService;
-use GuzzleHttp\Client;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class VtpassService
 {
     public function __construct(
-        private readonly Client $http,
         private readonly WalletService $walletService,
         private readonly PaymentRailService $railService,
         private readonly string $apiKey,
@@ -112,17 +110,16 @@ class VtpassService
                 'subscription_type' => $payment->request_payload['subscription_type'] ?? null,
             ];
 
-            $response = $this->http->post("{$this->baseUrl}/pay", [
-                'headers' => [
+            $response = \Illuminate\Support\Facades\Http::timeout(60)->withoutVerifying()
+                ->withHeaders([
                     'api-key' => $this->apiKey,
                     'secret-key' => $this->secretKey,
                     'public-key' => $this->publicKey,
                     'Content-Type' => 'application/json',
-                ],
-                'json' => array_filter($payload, fn ($v) => $v !== null),
-            ]);
+                ])
+                ->post("{$this->baseUrl}/pay", array_filter($payload, fn ($v) => $v !== null));
 
-            $body = json_decode($response->getBody()->getContents(), true);
+            $body = $response->json();
             $providerCode = $body['code'] ?? null;
             $isSuccess = in_array($providerCode, ['000', '099']);
 

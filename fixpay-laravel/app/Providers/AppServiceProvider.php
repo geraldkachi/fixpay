@@ -59,8 +59,6 @@ class AppServiceProvider extends ServiceProvider
         // ── VTPass Service ────────────────────────────────────────────────────
         $this->app->singleton(VtpassService::class, function ($app) {
             return new VtpassService(
-                // verify:false disables SSL cert check on Windows dev — sandbox only, remove for production
-                http: new Client(['timeout' => 60, 'verify' => false]),
                 walletService: $app->make(WalletService::class),
                 railService: $app->make(PaymentRailService::class),
                 apiKey: config('services.vtpass.api_key', ''),

@@ -19,19 +19,16 @@ class VtpassPaymentController extends Controller
     {
         try {
             $identifier = $request->query('identifier', 'airtime');
-            $client = new Client(['timeout' => 15, 'verify' => false]);
-
-            $response = $client->get(config('services.vtpass.base_url') . '/services', [
-                'headers' => [
+            $response = \Illuminate\Support\Facades\Http::timeout(15)->withoutVerifying()
+                ->withHeaders([
                     'api-key' => config('services.vtpass.api_key'),
                     'public-key' => config('services.vtpass.public_key'),
-                ],
-                'query' => ['identifier' => $identifier],
-            ]);
+                ])
+                ->get(config('services.vtpass.base_url') . '/services', [
+                    'identifier' => $identifier
+                ]);
 
-            return response()->json(
-                json_decode($response->getBody()->getContents(), true)
-            );
+            return response()->json($response->json());
         } catch (\Throwable $e) {
             return response()->json([
                 'message' => 'Service not available at this time. Please try again later.'
@@ -45,19 +42,17 @@ class VtpassPaymentController extends Controller
         $request->validate(['serviceID' => 'required|string']);
 
         try {
-            $client = new Client(['timeout' => 15, 'verify' => false]);
-            $response = $client->get(config('services.vtpass.base_url') . '/service-variations', [
-                'headers' => [
+            $response = \Illuminate\Support\Facades\Http::timeout(15)->withoutVerifying()
+                ->withHeaders([
                     'api-key' => config('services.vtpass.api_key'),
                     'secret-key' => config('services.vtpass.secret_key'),
                     'public-key' => config('services.vtpass.public_key'),
-                ],
-                'query' => ['serviceID' => $request->query('serviceID')],
-            ]);
+                ])
+                ->get(config('services.vtpass.base_url') . '/service-variations', [
+                    'serviceID' => $request->query('serviceID')
+                ]);
 
-            return response()->json(
-                json_decode($response->getBody()->getContents(), true)
-            );
+            return response()->json($response->json());
         } catch (\Throwable $e) {
             return response()->json([
                 'message' => 'Service not available at this time. Please try again later.'
@@ -75,29 +70,15 @@ class VtpassPaymentController extends Controller
         ]);
 
         try {
-            $client = new Client(['timeout' => 15, 'verify' => false]);
-            
-            $payload = [
-                'billersCode' => $data['billers_code'],
-                'serviceID' => $data['service_id'],
-            ];
-
-            if (!empty($data['type'])) {
-                $payload['type'] = $data['type'];
-            }
-
-            $response = $client->post(config('services.vtpass.base_url') . '/merchant-verify', [
-                'headers' => [
+            $response = \Illuminate\Support\Facades\Http::timeout(15)->withoutVerifying()
+                ->withHeaders([
                     'api-key' => config('services.vtpass.api_key'),
                     'secret-key' => config('services.vtpass.secret_key'),
                     'Content-Type' => 'application/json',
-                ],
-                'json' => $payload,
-            ]);
+                ])
+                ->post(config('services.vtpass.base_url') . '/merchant-verify', $payload);
 
-            return response()->json(
-                json_decode($response->getBody()->getContents(), true)
-            );
+            return response()->json($response->json());
         } catch (\Throwable $e) {
             return response()->json([
                 'message' => 'Service not available at this time. Please try again later.'
