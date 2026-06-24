@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -132,7 +132,135 @@ function BvnStep({ onDone, onSkip }: { onDone: () => void; onSkip: () => void })
   )
 }
 
+// function SelfieStep({ onDone, loading }: { onDone: () => void; loading: boolean }) {
+//   return (
+//     <div className="flex flex-col items-center gap-5">
+//       <div className="text-center">
+//         <p className="text-[28px]">🤳</p>
+//         <h2 className="text-[20px] font-bold text-gray-900 mt-2">Selfie Verification</h2>
+//         <p className="text-[14px] text-gray-500 mt-1">Take a quick selfie to complete your identity check.</p>
+//       </div>
+//       <div className="w-40 h-40 rounded-full bg-gray-100 border-4 border-dashed border-gray-200 flex items-center justify-center">
+//         <span className="text-[60px]">📸</span>
+//       </div>
+//       <p className="text-[13px] text-gray-400 text-center">(Simulated in demo — tap button to proceed)</p>
+//       <Button fullWidth loading={loading} onClick={onDone}>Take Selfie &amp; Continue</Button>
+//     </div>
+//   )
+// }
+
+
 function SelfieStep({ onDone, loading }: { onDone: () => void; loading: boolean }) {
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [cameraReady, setCameraReady] = useState(false)
+  const [cameraError, setCameraError] = useState('')
+  const [hasPermission, setHasPermission] = useState<boolean | null>(null)
+  const [isCapturing, setIsCapturing] = useState(false)
+
+  useEffect(() => {
+    let stream: MediaStream | null = null
+
+    const startCamera = async () => {
+      try {
+        // Request camera access
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { 
+            facingMode: 'user', // Front camera
+            width: { ideal: 640 },
+            height: { ideal: 480 }
+          },
+          audio: false
+        })
+
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream
+          await videoRef.current.play()
+          setCameraReady(true)
+          setHasPermission(true)
+        }
+      } catch (error) {
+        console.error('Camera error:', error)
+        setCameraError('Could not access camera. Please allow camera permissions.')
+        setHasPermission(false)
+        
+        // Handle specific error types
+        if (error instanceof DOMException) {
+          if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+            setCameraError('Camera permission denied. Please allow camera access in your browser settings.')
+          } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+            setCameraError('No camera found on this device.')
+          } else if (error.name === 'NotReadableError') {
+            setCameraError('Camera is in use by another application.')
+          }
+        }
+      }
+    }
+
+    startCamera()
+
+    // Cleanup: stop camera when component unmounts
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop())
+      }
+    }
+  }, [])
+
+  const captureSelfie = () => {
+    if (!videoRef.current || !canvasRef.current || !cameraReady) return
+
+    setIsCapturing(true)
+    const video = videoRef.current
+    const canvas = canvasRef.current
+
+    // Set canvas dimensions to match video
+    canvas.width = video.videoWidth || 640
+    canvas.height = video.videoHeight || 480
+
+    // Draw the current video frame to canvas
+    const ctx = canvas.getContext('2d')
+    if (ctx) {
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+      
+      // Convert canvas to image data (if you need to send to API)
+      const imageData = canvas.toDataURL('image/jpeg', 0.8)
+      
+      // You can save the image or send it to your API
+      console.log('Selfie captured!', imageData.substring(0, 50) + '...')
+      
+      // If you need to upload to API:
+      // uploadSelfie(imageData)
+      
+      // Simulate processing
+      setTimeout(() => {
+        setIsCapturing(false)
+        onDone()
+      }, 500)
+    }
+  }
+
+  const uploadSelfie = async (imageData: string) => {
+    try {
+      const response = await api.post('/kyc/selfie', { 
+        image: imageData,
+        // You might need to send as base64 or convert to Blob
+      })
+      return response.data
+    } catch (error) {
+      console.error('Selfie upload failed:', error)
+      throw error
+    }
+  }
+
+  const retryCamera = () => {
+    setCameraError('')
+    setHasPermission(null)
+    setCameraReady(false)
+    // Reload the component or trigger useEffect again
+    window.location.reload()
+  }
+
   return (
     <div className="flex flex-col items-center gap-5">
       <div className="text-center">
@@ -140,11 +268,104 @@ function SelfieStep({ onDone, loading }: { onDone: () => void; loading: boolean 
         <h2 className="text-[20px] font-bold text-gray-900 mt-2">Selfie Verification</h2>
         <p className="text-[14px] text-gray-500 mt-1">Take a quick selfie to complete your identity check.</p>
       </div>
-      <div className="w-40 h-40 rounded-full bg-gray-100 border-4 border-dashed border-gray-200 flex items-center justify-center">
-        <span className="text-[60px]">📸</span>
+
+      {/* Camera Preview */}
+      <div className="relative w-full max-w-sm aspect-[4/3] bg-gray-900 rounded-xl overflow-hidden">
+        <video
+          ref={videoRef}
+          className={cn(
+            "w-full h-full object-cover transition-opacity duration-500",
+            cameraReady ? "opacity-100" : "opacity-0"
+          )}
+          muted
+          playsInline
+        />
+        
+        {/* Loading State */}
+        {!cameraReady && !cameraError && (
+          <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-10 h-10 rounded-full border-4 border-white border-t-transparent animate-spin" />
+              <p className="text-white text-sm">Starting camera...</p>
+            </div>
+          </div>
+        )}
+
+        {/* Error State */}
+        {cameraError && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 p-6 text-center">
+            <span className="text-4xl mb-3">🚫</span>
+            <p className="text-white text-sm font-medium">{cameraError}</p>
+            <p className="text-gray-400 text-xs mt-2">Camera access is required for identity verification.</p>
+            <div className="flex gap-3 mt-4">
+              <Button variant="outline" onClick={retryCamera} className="text-white border-white/20 hover:bg-white/10">
+                Try Again
+              </Button>
+              <Button 
+                variant="ghost" 
+                onClick={() => onDone()} 
+                className="text-gray-400 hover:text-white"
+              >
+                Continue Later
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Camera Guide Overlay */}
+        {cameraReady && (
+          <div className="absolute inset-0 pointer-events-none">
+            <div className="absolute inset-0 border-2 border-white/30 rounded-xl" />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 rounded-full border-2 border-white/50" />
+            <p className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/60 text-xs bg-black/50 px-3 py-1 rounded-full">
+              Center your face in the circle
+            </p>
+          </div>
+        )}
       </div>
-      <p className="text-[13px] text-gray-400 text-center">(Simulated in demo — tap button to proceed)</p>
-      <Button fullWidth loading={loading} onClick={onDone}>Take Selfie &amp; Continue</Button>
+
+      {/* Hidden Canvas for capturing */}
+      <canvas ref={canvasRef} className="hidden" />
+
+      {/* Action Buttons */}
+      <div className="w-full space-y-3 max-w-sm">
+        {cameraReady && (
+          <Button 
+            fullWidth 
+            loading={loading || isCapturing} 
+            onClick={captureSelfie}
+            className="relative"
+          >
+            <span className="flex items-center gap-2">
+              <span className="text-xl">📸</span>
+              Take Selfie & Continue
+            </span>
+          </Button>
+        )}
+
+        {!cameraReady && !cameraError && (
+          <Button fullWidth disabled>
+            <span className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+              Loading Camera...
+            </span>
+          </Button>
+        )}
+
+        <Button 
+          type="button" 
+          variant="ghost" 
+          onClick={() => onDone()} 
+          fullWidth
+          className="text-brand"
+        >
+          Continue Later
+        </Button>
+      </div>
+
+      <p className="text-[12px] text-center text-gray-400">
+        {cameraReady ? 'Position your face within the circle and tap to capture' : 'Please allow camera access when prompted'}
+      </p>
     </div>
   )
 }

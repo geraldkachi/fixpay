@@ -2,10 +2,10 @@
 
 /* ── Runtime brand tokens (set by TenantProvider on <html>) ── */
 :root {
-  --brand-primary: #007AFF;
+  --brand-primary: #A51D21;
   --brand-secondary: #34C759;
   --brand-accent: #FF9500;
-  --ios-blue: #007AFF;
+  --ios-blue: #A51D21;
   --ios-green: #34C759;
   --ios-red: #FF3B30;
   --ios-orange: #FF9500;

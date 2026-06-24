@@ -6,7 +6,7 @@ interface PaymentMethodsChartProps {
 }
 
 // System colors
-const COLORS = ['#007AFF', '#34C759', '#FF9500', '#5856D6']
+const COLORS = ['#A51D21', '#34C759', '#FF9500', '#5856D6']
 
 export function PaymentMethodsChart({ data }: PaymentMethodsChartProps) {
   

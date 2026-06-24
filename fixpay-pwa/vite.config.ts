@@ -10,7 +10,7 @@ const pwaPlugin = VitePWA({
     name: 'FixPay',
     short_name: 'FixPay',
     description: 'Fast, secure Nigerian payments',
-    theme_color: '#007AFF',
+    theme_color: '#A51D21',
     background_color: '#ffffff',
     display: 'standalone',
     orientation: 'portrait-primary',

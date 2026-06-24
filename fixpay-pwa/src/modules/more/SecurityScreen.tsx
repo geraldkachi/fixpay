@@ -256,7 +256,7 @@ export function SecurityScreen() {
         <div className="bg-white rounded-[20px] overflow-hidden mb-5">
           <MenuRow
             icon={LockClosedIcon}
-            iconBg="#007AFF"
+            iconBg="#A51D21"
             label="Transaction PIN"
             sub="Change your 4-digit payment PIN"
             onPress={() => setShowPinSheet(true)}
