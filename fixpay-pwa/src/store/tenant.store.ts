@@ -5,7 +5,7 @@ const DEFAULTS: TenantConfig = {
   tenantId: 'default',
   slug: 'fixpay',
   appName: 'FixPay',
-  primaryColor: '#007AFF',
+  primaryColor: '#A51D21',
   secondaryColor: '#34C759',
   accentColor: '#FF9500',
   logoUrl: null,

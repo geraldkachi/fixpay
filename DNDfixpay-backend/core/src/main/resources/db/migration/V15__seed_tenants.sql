@@ -22,7 +22,7 @@ INSERT INTO tenants (
     '00000000-0000-0000-0000-000000000002',
     'demo',
     'FixPay Demo',
-    '#007AFF', '#34C759', '#FF9500',
+    '#A51D21', '#34C759', '#FF9500',
     'support@fixpay.com', '07000000000',
     TRUE, TRUE, TRUE, FALSE, TRUE, TRUE
 )

@@ -78,7 +78,7 @@ export const mockDisputes: Dispute[] = [
 export const mockTenantConfig: TenantConfig = {
   tenantId: 'ten_01HXKP3VWRY2J9NVW3B5E',
   slug: 'fixpay', appName: 'FixPay',
-  primaryColor: '#007AFF', secondaryColor: '#34C759', accentColor: '#FF9500',
+  primaryColor: '#A51D21', secondaryColor: '#34C759', accentColor: '#FF9500',
   logoUrl: null, faviconUrl: null,
   supportEmail: 'support@fixpay.com', supportPhone: '07000000000',
   features: { billPayments: true, directDebit: true, walletTransfers: true, internationalAirtime: false, disputeManagement: true, nibssTransfers: true },

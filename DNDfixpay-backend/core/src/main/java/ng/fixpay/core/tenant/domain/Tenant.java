@@ -113,7 +113,7 @@ public class Tenant {
         t.kybStatus    = KybStatus.PENDING;
         t.plan         = Plan.STARTER;
         t.active       = true;
-        t.primaryColor   = "#007AFF";
+        t.primaryColor   = "#A51D21";
         t.secondaryColor = "#34C759";
         t.accentColor    = "#FF9500";
         return t;

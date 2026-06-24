@@ -7,7 +7,7 @@ interface CategoryBreakdownChartProps {
 }
 
 // System colors for categories
-const COLORS = ['#007AFF', '#5856D6', '#FF9500', '#FF3B30', '#34C759', '#AF52DE', '#FF2D55']
+const COLORS = ['#A51D21', '#5856D6', '#FF9500', '#FF3B30', '#34C759', '#AF52DE', '#FF2D55']
 
 export function CategoryBreakdownChart({ data }: CategoryBreakdownChartProps) {
   
