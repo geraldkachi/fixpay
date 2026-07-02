@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS tenants (
     id               UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
     slug             VARCHAR(60)  NOT NULL UNIQUE,   -- URL-safe key, e.g. "demo"
     name             VARCHAR(120) NOT NULL,
-    primary_color    VARCHAR(9)   NOT NULL DEFAULT '#007AFF',
+    primary_color    VARCHAR(9)   NOT NULL DEFAULT '#A51D21',
     secondary_color  VARCHAR(9)   NOT NULL DEFAULT '#34C759',
     accent_color     VARCHAR(9)   NOT NULL DEFAULT '#FF9500',
     logo_url         VARCHAR(500),
