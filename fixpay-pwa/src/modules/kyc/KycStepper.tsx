@@ -643,6 +643,131 @@ function SelfieStep({ onDone, loading }: { onDone: () => void; loading: boolean 
   )
 }
 
+// export function KycStepper() {
+//   const navigate = useNavigate()
+//   const { setKycCompleted, setKycDeferred } = useAuthStore()
+  
+//   const [loadingStatus, setLoadingStatus] = useState(true)
+//   const [unvalidatedSteps, setUnvalidatedSteps] = useState<Step[]>([0, 1, 2])
+//   const [currentStepIndex, setCurrentStepIndex] = useState(0)
+
+//   const [selfieLoading, setSelfieLoading] = useState(false)
+//   const [done, setDone] = useState(false)
+
+//   useEffect(() => {
+//     async function checkStatus() {
+//       try {
+//         const res = await api.get('/kyc/status')
+//         const verifications = res.data.verifications || []
+//         const hasNin = verifications.some((v: any) => v.type === 'NIN' && v.status === 'VERIFIED')
+//         const hasBvn = verifications.some((v: any) => (v.type === 'BVN' || v.type === 'BVN_CONSENT') && v.status === 'VERIFIED')
+        
+//         const steps: Step[] = []
+//         if (!hasNin) steps.push(0)
+//         if (!hasBvn) steps.push(1)
+//         steps.push(2) // Selfie is always last
+        
+//         setUnvalidatedSteps(steps)
+//       } catch (e) {
+//         // use default [0,1,2] if error
+//       } finally {
+//         setLoadingStatus(false)
+//       }
+//     }
+//     checkStatus()
+//   }, [])
+
+//   const handleNext = () => {
+//     if (currentStepIndex + 1 < unvalidatedSteps.length) {
+//       setCurrentStepIndex(curr => curr + 1)
+//     }
+//   }
+
+//   const deferKyc = () => {
+//     setKycDeferred(true)
+//     navigate('/home')
+//   }
+
+//   const handleSkip = () => {
+//     // If the next step is selfie, and we skipped NIN or BVN, we just defer KYC
+//     // because we shouldn't allow completing Selfie if previous steps are explicitly skipped.
+//     const nextStep = unvalidatedSteps[currentStepIndex + 1]
+//     if (nextStep === 2) {
+//       deferKyc()
+//     } else {
+//       handleNext()
+//     }
+//   }
+
+//   const handleSelfie = async () => {
+//     setSelfieLoading(true)
+//     try {
+//       await new Promise(r => setTimeout(r, 800)) // simulate network delay
+//       setDone(true)
+      
+//       // If they skipped NIN or BVN, don't mark completely verified globally.
+//       // But for this flow, if they successfully reach the end, we consider them done
+//       // or we check if there are unvalidated steps left?
+//       // Since they only arrive at Selfie if they didn't skip the prior steps, they are fully done.
+//       setKycCompleted(true)
+//       useAuthStore.getState().setKycDeferred(false)
+//       setTimeout(() => navigate('/home', { replace: true }), 1800)
+//     } catch { /* ignore */ }
+//     finally { setSelfieLoading(false) }
+//   }
+
+//   if (loadingStatus) {
+//     return (
+//       <div className="h-[100dvh] flex items-center justify-center bg-[#F2F2F7]">
+//         <div className="w-8 h-8 rounded-full border-4 border-gray-200 border-t-brand animate-spin" />
+//       </div>
+//     )
+//   }
+
+//   if (done) return (
+//     <div className="h-[100dvh] flex flex-col items-center justify-center gap-4 animate-scale-in">
+//       <CheckCircleIcon className="w-20 h-20 text-ios-green" />
+//       <h2 className="text-[24px] font-bold text-gray-900">KYC Complete!</h2>
+//       <p className="text-gray-500">Redirecting to your dashboard…</p>
+//     </div>
+//   )
+
+//   const step = unvalidatedSteps[currentStepIndex]
+
+//   return (
+//     <div className="flex flex-col h-[100dvh] bg-[#F2F2F7]">
+//       <PageHeader title="Identity Verification" onBack={currentStepIndex > 0 ? () => setCurrentStepIndex(curr => curr - 1) : undefined} />
+
+//       {/* Progress bar visually maps 0, 1, 2 even if skipping internally */}
+//       <div className="flex gap-2 px-4 pb-4 shrink-0">
+//         {STEPS.map((s, i) => {
+//           const isActiveOrPassed = i <= step
+//           return (
+//             <div key={s} onClick={() => setCurrentStepIndex(i)} className="flex-1 flex flex-col items-center gap-1">
+//               <div className={cn('h-1 w-full rounded-full transition-all duration-500', isActiveOrPassed ? 'opacity-100' : 'bg-gray-200')}
+//                 style={isActiveOrPassed ? { background: 'var(--brand-primary)' } : undefined} />
+//               <span className={cn('text-[11px] font-medium', isActiveOrPassed ? 'text-brand' : 'text-gray-400')}
+//                 style={isActiveOrPassed ? { color: 'var(--brand-primary)' } : undefined}>{s}</span>
+//             </div>
+//           )
+//         })}
+//       </div>
+
+//       <div className="flex-1 overflow-y-auto no-scrollbar px-4 pb-8">
+//         <AnimatePresence mode="wait">
+//           <motion.div key={step} initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -40 }}
+//             transition={{ duration: 0.25 }}>
+//             {step === 0 && <NinStep onDone={handleNext} onSkip={handleSkip} />}
+//             {step === 1 && <BvnStep onDone={handleNext} onSkip={handleSkip} />}
+//             {step === 2 && <SelfieStep onDone={handleSelfie} loading={selfieLoading} />}
+//           </motion.div>
+//         </AnimatePresence>
+//       </div>
+//     </div>
+//   )
+// }
+
+
 export function KycStepper() {
   const navigate = useNavigate()
   const { setKycCompleted, setKycDeferred } = useAuthStore()
@@ -689,8 +814,6 @@ export function KycStepper() {
   }
 
   const handleSkip = () => {
-    // If the next step is selfie, and we skipped NIN or BVN, we just defer KYC
-    // because we shouldn't allow completing Selfie if previous steps are explicitly skipped.
     const nextStep = unvalidatedSteps[currentStepIndex + 1]
     if (nextStep === 2) {
       deferKyc()
@@ -702,18 +825,32 @@ export function KycStepper() {
   const handleSelfie = async () => {
     setSelfieLoading(true)
     try {
-      await new Promise(r => setTimeout(r, 800)) // simulate network delay
+      await new Promise(r => setTimeout(r, 800))
       setDone(true)
-      
-      // If they skipped NIN or BVN, don't mark completely verified globally.
-      // But for this flow, if they successfully reach the end, we consider them done
-      // or we check if there are unvalidated steps left?
-      // Since they only arrive at Selfie if they didn't skip the prior steps, they are fully done.
       setKycCompleted(true)
       useAuthStore.getState().setKycDeferred(false)
       setTimeout(() => navigate('/home', { replace: true }), 1800)
     } catch { /* ignore */ }
     finally { setSelfieLoading(false) }
+  }
+
+  // Function to navigate to any step - NO RESTRICTIONS
+  const goToStep = (stepIndex: number) => {
+    // Check if the step exists in unvalidatedSteps
+    const stepExists = unvalidatedSteps.includes(stepIndex as Step)
+    if (stepExists) {
+      setCurrentStepIndex(unvalidatedSteps.indexOf(stepIndex as Step))
+    } else {
+      // If step doesn't exist in unvalidatedSteps, add it
+      // This allows navigation to ANY step regardless of validation status
+      const newSteps = [...unvalidatedSteps]
+      if (!newSteps.includes(stepIndex as Step)) {
+        newSteps.push(stepIndex as Step)
+        newSteps.sort((a, b) => a - b) // Sort to maintain order
+        setUnvalidatedSteps(newSteps)
+        setCurrentStepIndex(newSteps.indexOf(stepIndex as Step))
+      }
+    }
   }
 
   if (loadingStatus) {
@@ -738,16 +875,65 @@ export function KycStepper() {
     <div className="flex flex-col h-[100dvh] bg-[#F2F2F7]">
       <PageHeader title="Identity Verification" onBack={currentStepIndex > 0 ? () => setCurrentStepIndex(curr => curr - 1) : undefined} />
 
-      {/* Progress bar visually maps 0, 1, 2 even if skipping internally */}
+      {/* Clickable Progress Bar - NO RESTRICTIONS */}
       <div className="flex gap-2 px-4 pb-4 shrink-0">
         {STEPS.map((s, i) => {
-          const isActiveOrPassed = i <= step
+          const isActive = i === step
+          const isPassed = i < step
+          
+          // All steps are always clickable - NO RESTRICTIONS
+          const isClickable = true
+
+          const handleStepClick = () => {
+            goToStep(i) // Navigate to ANY step
+          }
+
           return (
-            <div key={s} onClick={() => setCurrentStepIndex(i)} className="flex-1 flex flex-col items-center gap-1">
-              <div className={cn('h-1 w-full rounded-full transition-all duration-500', isActiveOrPassed ? 'opacity-100' : 'bg-gray-200')}
-                style={isActiveOrPassed ? { background: 'var(--brand-primary)' } : undefined} />
-              <span className={cn('text-[11px] font-medium', isActiveOrPassed ? 'text-brand' : 'text-gray-400')}
-                style={isActiveOrPassed ? { color: 'var(--brand-primary)' } : undefined}>{s}</span>
+            <div 
+              key={s} 
+              onClick={handleStepClick}
+              className={cn(
+                'flex-1 flex flex-col items-center gap-1 transition-all duration-200',
+                'cursor-pointer hover:scale-105 group'
+              )}
+              title={`Go to ${s}`}
+            >
+              {/* Progress Bar */}
+              <div 
+                className={cn(
+                  'h-1 w-full rounded-full transition-all duration-500',
+                  isActive ? 'bg-brand' : isPassed ? 'bg-brand/60' : 'bg-gray-200',
+                  !isActive && 'group-hover:bg-brand/40'
+                )}
+              />
+              
+              {/* Step Label with Icon */}
+              <div className="flex items-center gap-1.5">
+                {/* Step Icon */}
+                <span className="text-xs">
+                  {s === 'NIN' && '🪪'}
+                  {s === 'BVN' && '🏦'}
+                  {s === 'Selfie' && '🤳'}
+                </span>
+                
+                {/* Step Name */}
+                <span 
+                  className={cn(
+                    'text-[11px] font-medium transition-colors',
+                    isActive ? 'text-brand font-semibold' : isPassed ? 'text-brand/70' : 'text-gray-400',
+                    !isActive && 'group-hover:text-brand/80'
+                  )}
+                >
+                  {s}
+                </span>
+                
+                {/* Checkmark for completed steps */}
+                {isPassed && (
+                  <svg className="w-3 h-3 text-brand/70" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                )}
+              </div>
             </div>
           )
         })}
