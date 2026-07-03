@@ -32,9 +32,10 @@ export function Logo({ size = 'md', markOnly = false }: LogoProps) {
   const s = SIZES[size]
   return (
     <div className="flex items-center select-none" style={{ gap: s.gap }}>
-      <LogoMark size={s.icon} />
+      {/* <LogoMark size={s.icon} /> */}
+      <img src="/favicon.png" alt="FixPay" className="w-9 h-9 mt-1" />
       {!markOnly && (
-        <span className="font-black tracking-tight text-gray-900" style={{ fontSize: s.text, lineHeight: 1 }}>
+        <span className="font-black tracking-tight text-gray-900 -ml-1" style={{ fontSize: s.text, lineHeight: 1 }}>
           Fix<span style={{ color: 'var(--brand-primary)' }}>Pay</span>
         </span>
       )}
