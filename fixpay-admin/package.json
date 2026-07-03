@@ -4,8 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --port 5174",
-    "build": "tsc -b && vite build",
+    "dev": "node init && vite --port 5174",
+    "build": "node init && tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview --port 5174",
     "typecheck": "tsc --noEmit",
@@ -41,7 +41,7 @@
     "tailwindcss": "^4.3.0",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.59.2",
-    "vite": "^8.0.12"
-    ,"vitest": "^3.2.4"
+    "vite": "^8.0.12",
+    "vitest": "^3.2.4"
   }
 }
