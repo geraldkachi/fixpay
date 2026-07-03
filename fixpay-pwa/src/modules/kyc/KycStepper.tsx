@@ -140,7 +140,7 @@ function BvnStep({ onDone, onSkip }: { onDone: () => void; onSkip: () => void })
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<{ 
     bvn: string; 
     dob: string;
-    first_name: string;
+    first_name: string; 
     last_name: string;
   }>({ 
     resolver: zodResolver(
