@@ -4,10 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "build:mock": "vite build --mode mock",
-    "build:e2e": "vite build --mode e2e",
+    "dev": "node init && vite",
+    "build": "node init && vite build",
+    "build:mock": "node init && vite build --mode mock",
+    "build:e2e": "node init && vite build --mode e2e",
     "lint": "eslint .",
     "preview": "vite preview"
   },

@@ -14,7 +14,7 @@ const mapFavouriteToTransaction = (fav: FavouritePayload): Transaction => ({
   serviceId: fav.service_id,
   serviceName: fav.service_name,
   counterpartyName: fav.counterparty_name,
-  createdAt: new Date().toISOString(),
+  createdAt: new Date().toISOString(), 
 })
 
 interface FavouritesState {
