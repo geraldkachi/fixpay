@@ -663,9 +663,9 @@ export function KycStepper() {
         const hasBvn = verifications.some((v: any) => (v.type === 'BVN' || v.type === 'BVN_CONSENT') && v.status === 'VERIFIED')
         
         const steps: Step[] = []
-        // if (!hasNin) steps.push(0)
-        // if (!hasBvn) steps.push(1)
-        steps.push(1) // Selfie is always last
+        if (!hasNin) steps.push(0)
+        if (!hasBvn) steps.push(1)
+        steps.push(2) // Selfie is always last
         
         setUnvalidatedSteps(steps)
       } catch (e) {
